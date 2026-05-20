@@ -3,9 +3,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
-const { defaultDeviceId, loadProjectConfig, pidFilePath } = require('../shared/config');
+const { defaultDeviceId, loadDotEnv, pidFilePath } = require('../shared/config');
 const { startCollector } = require('../shared/collector');
 const { aggregateDevices } = require('../shared/usage');
+
+loadDotEnv();
 
 const APP_NAME = 'Token Monitor';
 const APP_ICON_PATH = path.join(__dirname, '..', '..', 'assets', 'icon.png');
@@ -18,22 +20,19 @@ app.setName(APP_NAME);
 if (process.platform === 'win32') app.setAppUserModelId('com.javis.tokenmonitor');
 
 function defaultSettings() {
-  const projectConfig = loadProjectConfig();
-  const widgetConfig = projectConfig.widget || {};
-  const agentConfig = projectConfig.agent || {};
   return {
-    hubUrl: process.env.TOKEN_MONITOR_HUB_URL || widgetConfig.hubUrl || '',
-    secret: process.env.TOKEN_MONITOR_SECRET || widgetConfig.secret || '',
-    alwaysOnTop: process.env.TOKEN_MONITOR_ALWAYS_ON_TOP !== '0' && widgetConfig.alwaysOnTop !== false,
-    refreshMs: Number(process.env.TOKEN_MONITOR_WIDGET_REFRESH_MS || widgetConfig.refreshMs || 15000),
-    glassOpacity: Number(widgetConfig.glassOpacity ?? 68),
-    glassBlur: Number(widgetConfig.glassBlur ?? 32),
-    systemGlass: widgetConfig.systemGlass !== false,
-    showLiveDot: widgetConfig.showLiveDot !== false,
-    deviceId: widgetConfig.deviceId || agentConfig.deviceId || defaultDeviceId(),
+    hubUrl: process.env.TOKEN_MONITOR_HUB_URL || '',
+    secret: process.env.TOKEN_MONITOR_SECRET || '',
+    alwaysOnTop: process.env.TOKEN_MONITOR_ALWAYS_ON_TOP !== '0',
+    refreshMs: Number(process.env.TOKEN_MONITOR_WIDGET_REFRESH_MS || 15000),
+    glassOpacity: 68,
+    glassBlur: 32,
+    systemGlass: true,
+    showLiveDot: true,
+    deviceId: process.env.TOKEN_MONITOR_DEVICE_ID || defaultDeviceId(),
     lastPostedDeviceId: '',
-    clients: widgetConfig.clients || agentConfig.clients || 'claude,codex,hermes,opencode,openclaw,cursor',
-    allTimeSince: widgetConfig.allTimeSince || agentConfig.allTimeSince || '2024-01-01'
+    clients: process.env.TOKEN_MONITOR_CLIENTS || 'claude,codex,hermes,opencode,openclaw,cursor',
+    allTimeSince: process.env.TOKEN_MONITOR_ALL_TIME_SINCE || '2024-01-01'
   };
 }
 

@@ -54,8 +54,8 @@ function writeJsonAtomic(filePath, value) {
   fs.renameSync(tempPath, filePath);
 }
 
-function loadProjectConfig() {
-  return readJson(path.join(projectRoot(), 'config.local.json'), {}) || {};
+function loadDotEnv() {
+  require('dotenv').config({ path: path.join(projectRoot(), '.env'), quiet: true });
 }
 
 function defaultDeviceId() {
@@ -66,4 +66,4 @@ function pidFilePath() {
   return path.join(projectRoot(), 'data', 'agent.pid');
 }
 
-module.exports = { defaultDeviceId, loadProjectConfig, parseArgs, pidFilePath, projectRoot, readJson, writeJsonAtomic };
+module.exports = { defaultDeviceId, loadDotEnv, parseArgs, pidFilePath, projectRoot, readJson, writeJsonAtomic };

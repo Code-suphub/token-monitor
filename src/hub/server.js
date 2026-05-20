@@ -5,16 +5,15 @@ const path = require('node:path');
 const { URL } = require('node:url');
 const { aggregateDevices, normalizeDeviceRecord } = require('../shared/usage');
 const { isAuthorized, readJsonBody, sendJson, sendText } = require('../shared/http');
-const { loadProjectConfig, parseArgs, projectRoot, readJson, writeJsonAtomic } = require('../shared/config');
+const { loadDotEnv, parseArgs, projectRoot, readJson, writeJsonAtomic } = require('../shared/config');
 
+loadDotEnv();
 const args = parseArgs(process.argv.slice(2));
-const projectConfig = loadProjectConfig();
-const hubConfig = projectConfig.hub || {};
-const port = Number(args.port || process.env.TOKEN_MONITOR_PORT || hubConfig.port || 17321);
-const host = String(args.host || process.env.TOKEN_MONITOR_HOST || hubConfig.host || '0.0.0.0');
-const secret = String(args.secret || process.env.TOKEN_MONITOR_SECRET || hubConfig.secret || '').trim();
-const staleAfterMs = Number(args.staleAfterMs || process.env.TOKEN_MONITOR_STALE_AFTER_MS || hubConfig.staleAfterMs || 10 * 60 * 1000);
-const dataFile = String(args.dataFile || process.env.TOKEN_MONITOR_DATA_FILE || hubConfig.dataFile || path.join(projectRoot(), 'data', 'devices.json'));
+const port = Number(args.port || process.env.TOKEN_MONITOR_PORT || 17321);
+const host = String(args.host || process.env.TOKEN_MONITOR_HOST || '0.0.0.0');
+const secret = String(args.secret || process.env.TOKEN_MONITOR_SECRET || '').trim();
+const staleAfterMs = Number(args.staleAfterMs || process.env.TOKEN_MONITOR_STALE_AFTER_MS || 10 * 60 * 1000);
+const dataFile = String(args.dataFile || process.env.TOKEN_MONITOR_DATA_FILE || path.join(projectRoot(), 'data', 'devices.json'));
 const store = readJson(dataFile, { version: 1, devices: {} }) || { version: 1, devices: {} };
 if (!store.devices || typeof store.devices !== 'object') store.devices = {};
 

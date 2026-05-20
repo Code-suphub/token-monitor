@@ -2,21 +2,20 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { defaultDeviceId, loadProjectConfig, parseArgs, pidFilePath } = require('../shared/config');
+const { defaultDeviceId, loadDotEnv, parseArgs, pidFilePath } = require('../shared/config');
 const { collectUsageOnce, startCollector } = require('../shared/collector');
 
+loadDotEnv();
 const args = parseArgs(process.argv.slice(2));
-const projectConfig = loadProjectConfig();
-const agentConfig = projectConfig.agent || {};
-const hubUrl = String(args.hub || args.hubUrl || process.env.TOKEN_MONITOR_HUB_URL || agentConfig.hubUrl || 'http://127.0.0.1:17321').replace(/\/$/, '');
-const secret = String(args.secret || process.env.TOKEN_MONITOR_SECRET || agentConfig.secret || '').trim();
-const deviceId = String(args.device || args.deviceId || process.env.TOKEN_MONITOR_DEVICE_ID || agentConfig.deviceId || defaultDeviceId());
-const intervalMs = Number(args.interval || args.intervalMs || process.env.TOKEN_MONITOR_INTERVAL_MS || agentConfig.intervalMs || 5 * 60 * 1000);
-const watchEnabled = String(args.watch ?? process.env.TOKEN_MONITOR_WATCH ?? agentConfig.watch ?? '1') !== '0';
-const watchDebounceMs = Number(args.watchDebounceMs || process.env.TOKEN_MONITOR_WATCH_DEBOUNCE_MS || agentConfig.watchDebounceMs || 1500);
-const clients = String(args.clients || process.env.TOKEN_MONITOR_CLIENTS || agentConfig.clients || 'claude,codex,hermes,opencode,openclaw,cursor');
-const allTimeSince = String(args.since || args.allTimeSince || process.env.TOKEN_MONITOR_ALL_TIME_SINCE || agentConfig.allTimeSince || '2024-01-01');
-const commandTimeoutMs = Number(args.timeoutMs || process.env.TOKEN_MONITOR_TOKSCALE_TIMEOUT_MS || agentConfig.tokscaleTimeoutMs || 120 * 1000);
+const hubUrl = String(args.hub || args.hubUrl || process.env.TOKEN_MONITOR_HUB_URL || 'http://127.0.0.1:17321').replace(/\/$/, '');
+const secret = String(args.secret || process.env.TOKEN_MONITOR_SECRET || '').trim();
+const deviceId = String(args.device || args.deviceId || process.env.TOKEN_MONITOR_DEVICE_ID || defaultDeviceId());
+const intervalMs = Number(args.interval || args.intervalMs || process.env.TOKEN_MONITOR_INTERVAL_MS || 5 * 60 * 1000);
+const watchEnabled = String(args.watch ?? process.env.TOKEN_MONITOR_WATCH ?? '1') !== '0';
+const watchDebounceMs = Number(args.watchDebounceMs || process.env.TOKEN_MONITOR_WATCH_DEBOUNCE_MS || 1500);
+const clients = String(args.clients || process.env.TOKEN_MONITOR_CLIENTS || 'claude,codex,hermes,opencode,openclaw,cursor');
+const allTimeSince = String(args.since || args.allTimeSince || process.env.TOKEN_MONITOR_ALL_TIME_SINCE || '2024-01-01');
+const commandTimeoutMs = Number(args.timeoutMs || process.env.TOKEN_MONITOR_TOKSCALE_TIMEOUT_MS || 120 * 1000);
 const once = Boolean(args.once);
 const dryRun = Boolean(args['dry-run'] || args.dryRun);
 

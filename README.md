@@ -75,8 +75,8 @@ Run the hub once on a machine that stays on, then open the widget on each device
 
 ```bash
 # on the always-on machine
-cp config.example.json config.local.json
-# set hub.secret to something private, then:
+cp .env.example .env
+# set TOKEN_MONITOR_SECRET to something private, then:
 npm run hub
 
 # on every device that should contribute or display usage
@@ -138,40 +138,26 @@ Click the `⚙` button in the widget header to open the Settings panel.
 
 The pin button in the widget header toggles "always on top".
 
-### Headless agent (`npm run agent`)
+### Headless agent and hub (`.env`)
 
-The agent has no UI. Configure it via `config.local.json` at the project root:
+The agent and hub have no UI. Configure them with a `.env` file at the project root (copy from `.env.example`):
 
-```json
-{
-  "agent": {
-    "hubUrl": "https://your-hub.example.com",
-    "secret": "your-secret",
-    "deviceId": "my-server",
-    "clients": "claude,codex,hermes,opencode,openclaw,cursor",
-    "intervalMs": 300000,
-    "allTimeSince": "2024-01-01"
-  }
-}
+```env
+TOKEN_MONITOR_HUB_URL=http://127.0.0.1:17321
+TOKEN_MONITOR_SECRET=change-me
+TOKEN_MONITOR_DEVICE_ID=             # optional — defaults to hostname
+TOKEN_MONITOR_CLIENTS=               # optional — defaults to all supported tools
 ```
 
-Every field can be overridden by an environment variable or CLI flag — useful for systemd / launchd / Docker. Precedence (highest first): CLI flag → env var → `config.local.json` → built-in default.
+The widget reads the same env vars as first-run defaults, then takes over with its own GUI-managed settings.
 
-| Field        | CLI flag                | Environment variable               |
-|--------------|-------------------------|------------------------------------|
-| `hubUrl`     | `--hub=<url>`           | `TOKEN_MONITOR_HUB_URL`            |
-| `secret`     | `--secret=<value>`      | `TOKEN_MONITOR_SECRET`             |
-| `deviceId`   | `--device=<id>`         | `TOKEN_MONITOR_DEVICE_ID`          |
-| `clients`    | `--clients=<csv>`       | `TOKEN_MONITOR_CLIENTS`            |
-| `intervalMs` | `--interval=<ms>`       | `TOKEN_MONITOR_INTERVAL_MS`        |
+Every value can also be passed as a CLI flag (`--hub=`, `--secret=`, `--device=`, `--clients=`) — flags win over env. Less-common knobs (`TOKEN_MONITOR_INTERVAL_MS`, `TOKEN_MONITOR_PORT`, `TOKEN_MONITOR_STALE_AFTER_MS`, …) are also accepted via env / flag but kept out of `.env.example` to reduce noise.
 
-Example one-off run with a custom client set:
+Example one-off run:
 
 ```bash
 npm run agent -- --clients=claude,codex,opencode --once
 ```
-
-> The widget (GUI) stores its settings in Electron's userData directory (`settings.json`) and only falls back to `config.local.json` for fields it has not been told about through the UI. Changes made in the headless agent's `config.local.json` are therefore visible to a fresh widget install but won't override existing widget settings.
 
 ## Privacy
 
@@ -183,7 +169,7 @@ The hub and agent only transmit summary fields:
 - per-client and per-model breakdowns
 
 They do not transmit raw AI logs, prompts, source code, or conversation
-content. `config.local.json`, `data/`, and `node_modules/` are gitignored.
+content. `.env`, `data/`, and `node_modules/` are gitignored.
 
 ## Requirements
 

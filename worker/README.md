@@ -56,19 +56,15 @@ connects.
 
 ## Configure the agent
 
-Either via `config.local.json`:
+Either via `.env` at the project root (copy from `.env.example`):
 
-```json
-{
-  "agent": {
-    "hubUrl": "https://token-monitor-hub.<your-subdomain>.workers.dev",
-    "secret": "<the same secret>",
-    "deviceId": "macbook-m5"
-  }
-}
+```env
+TOKEN_MONITOR_HUB_URL=https://token-monitor-hub.<your-subdomain>.workers.dev
+TOKEN_MONITOR_SECRET=<the same secret>
+TOKEN_MONITOR_DEVICE_ID=             # optional — defaults to hostname
 ```
 
-Or via env vars when launching:
+Or by exporting them inline when launching:
 
 ```bash
 TOKEN_MONITOR_HUB_URL=https://token-monitor-hub.<your-subdomain>.workers.dev \
@@ -175,8 +171,8 @@ need for your widget:
   },
   "devices": [
     {
-      "deviceId":   "macbook-m5",
-      "hostname":   "Javiss-MacBook-Air.local",
+      "deviceId":   "macbook",
+      "hostname":   "macbook.local",
       "platform":   "darwin-arm64",
       "updatedAt":  "2026-05-18T18:01:50.000Z",
       "receivedAt": "2026-05-18T18:01:51.012Z",

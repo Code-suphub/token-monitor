@@ -60,6 +60,21 @@
           <label class="checkbox-label"><input id="showLimitSourceInput" type="checkbox" />Show Source</label>
         </div>
         <div class="settings-group">
+          <div class="settings-group-header"><span>Display Mode</span></div>
+          <label class="checkbox-label"><input id="trayModeInput" type="checkbox" />Tray Mode</label>
+          <p class="settings-note">Hide the floating window; show a popover from the macOS menu bar or Windows system tray.</p>
+          <label>Tray text
+            <select id="trayContentInput">
+              <option value="cost">Cost ($1.23)</option>
+              <option value="tokens">Tokens today (1.2M)</option>
+              <option value="tokensAll">Total tokens (1.36B)</option>
+              <option value="both">Cost + tokens ($1.23 · 1.2M)</option>
+              <option value="limit">Limit left (54%)</option>
+              <option value="icon">Icon only</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-group">
           <div class="settings-group-header"><span>Appearance</span></div>
           <label class="checkbox-label"><input id="systemGlassInput" type="checkbox" />System Glass</label>
           <label class="checkbox-label"><input id="liveDotInput" type="checkbox" />Live Indicator</label>

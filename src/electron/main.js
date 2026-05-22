@@ -2,12 +2,13 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain, screen, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeImage, screen, shell } = require('electron');
 const { defaultDeviceId, loadDotEnv, pidFilePath } = require('../shared/config');
 const { startCollector } = require('../shared/collector');
 const { normalizeLimitsRefreshMs, parseBoolean, parseLimitProviders } = require('../shared/limitCollector');
 const { aggregateDevices } = require('../shared/usage');
 const { startDiscordRpc, stopDiscordRpc, updateDiscordRpc } = require('./discordRpc');
+const { buildTrayIcon, createTray, formatTrayText, pickWorstLimit, popoverBounds } = require('./tray');
 
 loadDotEnv();
 
@@ -17,6 +18,7 @@ const APP_ICON_PATH = path.join(__dirname, '..', '..', 'assets', 'icon.png');
 const DEFAULT_WINDOW = { width: 360, height: 500 };
 const WINDOW_LIMITS = { minWidth: 240, minHeight: 140, maxWidth: 1200, maxHeight: 1400 };
 const ZOOM_LIMITS = { min: 0.7, max: 1.6, step: 0.1 };
+const TRAY_CONTENT_VALUES = new Set(['cost', 'tokens', 'both', 'tokensAll', 'limit', 'icon']);
 
 let mainWindow = null;
 let settingsPath = null;
@@ -46,8 +48,15 @@ function defaultSettings() {
     limitsRefreshMs: normalizeLimitsRefreshMs(process.env.TOKEN_MONITOR_LIMITS_REFRESH_MS),
     showLimitSource: parseBoolean(process.env.TOKEN_MONITOR_SHOW_LIMIT_SOURCE, false),
     windowBounds: null,
-    zoomFactor: 1
+    zoomFactor: 1,
+    trayMode: false,
+    trayContent: 'cost'
   };
+}
+
+function normalizeTrayContent(value, fallback = 'cost') {
+  const v = String(value || '').trim();
+  return TRAY_CONTENT_VALUES.has(v) ? v : fallback;
 }
 
 function clampZoom(value) {
@@ -94,8 +103,14 @@ function persistBoundsSoon() {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     const next = mainWindow.getBounds();
     const prev = settings.windowBounds || {};
-    if (prev.x === next.x && prev.y === next.y && prev.width === next.width && prev.height === next.height) return;
-    settings.windowBounds = next;
+    if (settings?.trayMode) {
+      // Popover x/y is anchored to the tray icon each open; only the size carries over.
+      if (prev.width === next.width && prev.height === next.height) return;
+      settings.windowBounds = { ...prev, width: next.width, height: next.height };
+    } else {
+      if (prev.x === next.x && prev.y === next.y && prev.width === next.width && prev.height === next.height) return;
+      settings.windowBounds = next;
+    }
     saveSettings();
   }, 400);
 }
@@ -171,6 +186,15 @@ let sseAbortController = null;
 let sseRetryTimer = null;
 let streamConnected = false;
 let syncCollectorHandle = null;
+let tray = null;
+let latestStats = null;
+let suppressNextBlurHide = false;
+const providerTrayIcons = {};
+let defaultTrayIcon = null;
+function getDefaultTrayIcon() {
+  if (!defaultTrayIcon) defaultTrayIcon = buildTrayIcon();
+  return defaultTrayIcon;
+}
 const AGENT_PID_PATH = pidFilePath();
 
 function isExternalAgentActive() {
@@ -246,9 +270,30 @@ function isHubConfigured() {
 }
 
 function sendPush(payload) {
+  if (payload?.data?.stats) {
+    latestStats = payload.data.stats;
+    updateTrayDisplay();
+  }
   if (mainWindow && !mainWindow.isDestroyed()) {
     try { mainWindow.webContents.send('stats:push', payload); } catch (_) {}
   }
+}
+
+function updateTrayDisplay() {
+  if (!tray || tray.isDestroyed()) return;
+  const mode = settings?.trayContent || 'cost';
+  const text = formatTrayText(latestStats, mode);
+  if (process.platform === 'darwin') tray.setTitle(text);
+  // Tooltip always shows a useful summary, even in icon-only mode where setTitle is blank.
+  const tip = formatTrayText(latestStats, 'both');
+  tray.setToolTip(`Token Monitor — ${tip}`);
+  // Icon: provider logo in limit mode (when we have one), otherwise the app icon.
+  let icon = null;
+  if (mode === 'limit') {
+    const worst = pickWorstLimit(latestStats);
+    if (worst && providerTrayIcons[worst.provider]) icon = providerTrayIcons[worst.provider];
+  }
+  tray.setImage(icon || getDefaultTrayIcon());
 }
 
 function sendStatus(connected, extra) {
@@ -361,6 +406,70 @@ async function startStatsStream() {
   }
 }
 
+function showPopover() {
+  if (!mainWindow || mainWindow.isDestroyed() || !tray) return;
+  const current = mainWindow.getBounds();
+  const target = popoverBounds(tray, current.width, current.height);
+  mainWindow.setBounds(target);
+  suppressNextBlurHide = true;
+  mainWindow.show();
+  mainWindow.focus();
+  // The focus event itself may not fire a blur; the suppress flag covers the
+  // case where macOS fires blur immediately after show because the click that
+  // opened us still has the menu bar as the focused element.
+  setTimeout(() => { suppressNextBlurHide = false; }, 250);
+}
+
+function hidePopover() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isVisible()) mainWindow.hide();
+}
+
+function togglePopover() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isVisible() && mainWindow.isFocused()) hidePopover();
+  else showPopover();
+}
+
+function enterTrayMode() {
+  if (tray && !tray.isDestroyed()) return;
+  tray = createTray({
+    onToggle: togglePopover,
+    onQuit: requestAppQuit,
+    onSwitchToWindowMode: () => {
+      settings.trayMode = false;
+      saveSettings();
+      exitTrayMode();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try { mainWindow.webContents.send('settings:push', settings); } catch (_) {}
+      }
+    }
+  });
+  updateTrayDisplay();
+  if (process.platform === 'darwin' && app.dock) app.dock.hide();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (typeof mainWindow.setSkipTaskbar === 'function') mainWindow.setSkipTaskbar(true);
+    mainWindow.hide();
+  }
+}
+
+function exitTrayMode() {
+  if (tray && !tray.isDestroyed()) tray.destroy();
+  tray = null;
+  if (process.platform === 'darwin' && app.dock) app.dock.show();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (typeof mainWindow.setSkipTaskbar === 'function') mainWindow.setSkipTaskbar(false);
+    const restore = restoredBounds() || DEFAULT_WINDOW;
+    mainWindow.setBounds({
+      width: restore.width,
+      height: restore.height,
+      ...(typeof restore.x === 'number' ? { x: restore.x, y: restore.y } : {})
+    });
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
 function startMode() {
   if (isHubConfigured()) {
     stopLocalCollector();
@@ -379,6 +488,8 @@ function stopAll() {
   stopStatsStream();
   stopSyncCollector();
   stopDiscordRpc();
+  if (tray && !tray.isDestroyed()) tray.destroy();
+  tray = null;
 }
 
 let quitRequested = false;
@@ -411,6 +522,7 @@ function loadWindowFile(target) {
   const reveal = () => {
     if (revealed) return;
     revealed = true;
+    if (settings?.trayMode) return; // stay hidden until tray click
     revealWindow(target);
   };
   const fallbackTimer = setTimeout(reveal, 2500);
@@ -456,13 +568,23 @@ function createWindow(boundsOverride) {
     }
   });
   mainWindow = win;
+  if (settings.trayMode && typeof win.setSkipTaskbar === 'function') win.setSkipTaskbar(true);
   applyWindowSettings();
   applyNativeMaterial();
   keepNativeBlurActive();
   win.on('focus', keepNativeBlurActive);
-  win.on('blur', keepNativeBlurActive);
+  win.on('blur', () => {
+    keepNativeBlurActive();
+    if (settings?.trayMode && !suppressNextBlurHide && !quitRequested) hidePopover();
+  });
   win.on('resized', persistBoundsSoon);
   win.on('moved', persistBoundsSoon);
+  win.on('close', (event) => {
+    if (settings?.trayMode && !quitRequested) {
+      event.preventDefault();
+      hidePopover();
+    }
+  });
   win.webContents.on('before-input-event', handleZoomShortcut);
   loadWindowFile(win);
 }
@@ -494,6 +616,7 @@ function rebuildWindow() {
 app.whenReady().then(() => {
   if (process.platform === 'darwin' && app.dock) app.dock.setIcon(APP_ICON_PATH);
   createWindow();
+  if (settings.trayMode) enterTrayMode();
   startMode();
   if (settings.discordRpcEnabled) startDiscordRpc();
   ipcMain.handle('settings:get', () => settings);
@@ -507,6 +630,8 @@ app.whenReady().then(() => {
     const previousLimitProviders = settings.limitProviders;
     const previousLimitsRefreshMs = settings.limitsRefreshMs;
     const previousDiscordRpcEnabled = settings.discordRpcEnabled;
+    const previousTrayMode = settings.trayMode;
+    const previousTrayContent = settings.trayContent;
     settings = {
       ...settings,
       ...patch,
@@ -522,7 +647,9 @@ app.whenReady().then(() => {
       limitProviders: patch.limitProviders !== undefined ? parseLimitProviders(patch.limitProviders).join(',') : settings.limitProviders,
       limitsRefreshMs: normalizeLimitsRefreshMs(patch.limitsRefreshMs ?? settings.limitsRefreshMs),
       showLimitSource: parseBoolean(patch.showLimitSource ?? settings.showLimitSource, false),
-      zoomFactor: clampZoom(patch.zoomFactor ?? settings.zoomFactor)
+      zoomFactor: clampZoom(patch.zoomFactor ?? settings.zoomFactor),
+      trayMode: parseBoolean(patch.trayMode ?? settings.trayMode, false),
+      trayContent: normalizeTrayContent(patch.trayContent ?? settings.trayContent)
     };
     saveSettings();
     if (patch.zoomFactor !== undefined) applyZoomFactor();
@@ -545,6 +672,12 @@ app.whenReady().then(() => {
     ) {
       startMode();
     }
+    if (settings.trayMode !== previousTrayMode) {
+      if (settings.trayMode) enterTrayMode();
+      else exitTrayMode();
+    } else if (settings.trayContent !== previousTrayContent) {
+      updateTrayDisplay();
+    }
     return settings;
   });
   ipcMain.handle('appearance:preview', (_event, patch) => {
@@ -554,16 +687,35 @@ app.whenReady().then(() => {
     }
     return true;
   });
+  ipcMain.handle('tray:setIcons', (_event, icons) => {
+    if (!icons || typeof icons !== 'object') return false;
+    for (const [id, dataUrl] of Object.entries(icons)) {
+      if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png')) continue;
+      const img = nativeImage.createFromDataURL(dataUrl);
+      if (img.isEmpty()) continue;
+      const sized = img.resize({ width: 18, height: 18, quality: 'best' });
+      if (process.platform === 'darwin') sized.setTemplateImage(true);
+      providerTrayIcons[id] = sized;
+    }
+    updateTrayDisplay();
+    return true;
+  });
   ipcMain.handle('stats:get', () => fetchStats());
   ipcMain.handle('stream:status', () => ({ connected: streamConnected, mode }));
   ipcMain.handle('app:openUserData', () => shell.openPath(app.getPath('userData')));
-  ipcMain.on('window:minimize', () => mainWindow?.minimize());
-  ipcMain.on('window:close', () => mainWindow?.close());
+  ipcMain.on('window:minimize', () => {
+    if (settings?.trayMode) hidePopover();
+    else mainWindow?.minimize();
+  });
+  ipcMain.on('window:close', () => {
+    if (settings?.trayMode) hidePopover();
+    else mainWindow?.close();
+  });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', stopAll);
+app.on('before-quit', () => { quitRequested = true; stopAll(); });
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.once(signal, requestAppQuit);
 }

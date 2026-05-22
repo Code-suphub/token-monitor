@@ -43,6 +43,7 @@ Most usage monitors are useful on the machine they run on. Token Monitor is buil
 - Cost breakdown alongside token counts
 - Claude Code and Codex limit detection — shows session and weekly windows when local tool credentials are available
 - Appearance controls — adjust glass opacity/blur and window look (including transparent glass)
+- Menu bar / system tray mode — optional popover from the macOS menu bar or Windows system tray, with live cost, tokens, or the closest Claude/Codex limit % next to the icon
 - Local-first — no servers needed for single-device use
 - Self-hosted sync backend — use a Node hub or Cloudflare Worker over Server-Sent Events
 - iOS widget support (Widgy, Scriptable) through the Worker hub
@@ -139,6 +140,7 @@ Click the `⚙` button in the widget header to open the Settings panel.
 - **Multi-device Sync** — Hub URL and secret. Leave Hub URL empty to run in local mode (this device only).
 - **Tracked Tools** — checkboxes for each supported AI tool. Toggles take effect immediately and restart the collector with the new client list.
 - **AI Tool Limits** — choose Claude Code and Codex limit detection and refresh frequency.
+- **Display Mode** — switch to a menu bar (macOS) or system tray (Windows) popover instead of the floating window, and choose what shows next to the icon: cost, today's tokens, total tokens, cost + tokens, the closest Claude/Codex limit % left, or icon-only.
 - **Appearance** — system glass, live dot, tool icons, Discord Rich Presence, glass opacity, and glass blur.
 - **Advanced** — opens the underlying `settings.json` for less-common options like `allTimeSince`.
 

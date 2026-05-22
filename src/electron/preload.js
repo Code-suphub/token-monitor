@@ -13,7 +13,13 @@ contextBridge.exposeInMainWorld('tokenMonitor', {
     ipcRenderer.on('stats:push', listener);
     return () => ipcRenderer.removeListener('stats:push', listener);
   },
+  onSettingsPush: (callback) => {
+    const listener = (_event, payload) => { try { callback(payload); } catch (_) {} };
+    ipcRenderer.on('settings:push', listener);
+    return () => ipcRenderer.removeListener('settings:push', listener);
+  },
   openUserData: () => ipcRenderer.invoke('app:openUserData'),
+  setTrayIcons: (icons) => ipcRenderer.invoke('tray:setIcons', icons),
   minimize: () => ipcRenderer.send('window:minimize'),
   close: () => ipcRenderer.send('window:close')
 });

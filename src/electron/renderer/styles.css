@@ -36,6 +36,7 @@ html, body {
   -webkit-user-select: none;
 }
 button, input, select { font: inherit; }
+button:focus, button:focus-visible { outline: none; }
 input, textarea, [contenteditable="true"] {
   user-select: text;
   -webkit-user-select: text;

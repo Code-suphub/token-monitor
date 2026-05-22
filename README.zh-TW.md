@@ -43,6 +43,7 @@
 - Token 數量旁附帶成本分項
 - Claude Code 與 Codex 的用量上限偵測——本機具備工具憑證時會顯示 session 與每週視窗
 - 外觀控制——可調整玻璃透明度／模糊度與視窗外觀（含完全透明玻璃）
+- 選單列／系統匣模式——可改為由 macOS 選單列或 Windows 系統匣呼出的彈出視窗，圖示旁即時顯示成本、token 數，或 Claude／Codex 最接近用完的用量上限百分比
 - 本地優先——單裝置使用完全不需伺服器
 - 自架同步後端——支援 Node hub 或 Cloudflare Worker，透過 Server-Sent Events 推送
 - 透過 Worker hub 支援 iOS 小工具（Widgy、Scriptable）
@@ -139,6 +140,7 @@ Wrangler 會印出部署的 URL——把它貼到每台裝置的小工具 設定
 - **多裝置同步**——Hub URL 與 secret。Hub URL 留空即為本地模式（僅本機）。
 - **追蹤的工具**——各支援 AI 工具的勾選框。切換立即生效，並會用新的客戶端清單重啟收集器。
 - **AI 工具用量上限**——選擇 Claude Code 與 Codex 的用量上限偵測與更新頻率。
+- **顯示模式**——可將浮動視窗改為 macOS 選單列或 Windows 系統匣的彈出視窗，並選擇圖示旁顯示的內容：成本、今日 token 數、累計 token 數、成本＋token、最接近用完的 Claude／Codex 用量上限百分比，或只顯示圖示。
 - **外觀**——系統玻璃、即時點、工具圖示、Discord Rich Presence、玻璃透明度、玻璃模糊度。
 - **進階**——開啟底層 `settings.json` 來調整較少用的選項，例如 `allTimeSince`。
 

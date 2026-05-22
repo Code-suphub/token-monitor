@@ -163,6 +163,11 @@ function updateRow(row, { name, value, cost, max, color, stale, platform }) {
 }
 
 function renderRows(rows) {
+  if (rows.length === 0) {
+    els.breakdown.replaceChildren();
+    state.rowSignature = '';
+    return;
+  }
   const max = Math.max(1, ...rows.map((row) => row.value));
   const signature = rows.map((row) => row.key).join('\n');
   const existing = new Map(Array.from(els.breakdown.children).map((child) => [child.dataset.key, child]));
@@ -233,6 +238,7 @@ function deviceRowsForPeriod() {
 function toolRowsForPeriod(period) {
   const clientRows = Object.entries(period?.clients || {}).filter(([, value]) => Number(value) > 0).map(([client, value]) => ({ key: client, name: clientLabels[client] || client, value: Number(value), cost: Number(period?.clientCosts?.[client] || 0), color: clientColors[client] || clientColors.default, stale: false }));
   if (clientRows.length > 0) return clientRows.sort((a, b) => b.value - a.value);
+  if (Number(period?.totalTokens || 0) === 0) return [];
   return deviceRowsForPeriod();
 }
 
@@ -246,6 +252,7 @@ function modelRowsForPeriod(period) {
     stale: false
   }));
   if (modelRows.length > 0) return modelRows.sort((a, b) => b.value - a.value);
+  if (Number(period?.totalTokens || 0) === 0) return [];
   return toolRowsForPeriod(period);
 }
 

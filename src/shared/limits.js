@@ -184,16 +184,17 @@ function aggregateLimits(devices, staleAfterMs = 0, nowMs = Date.now()) {
     }
   }
 
-  aggregate.providers = Array.from(byKey.values())
-    .filter((provider) => {
-      if (isConfiguredProvider(provider)) return true;
-      return !providersWithConfiguredAccounts.has(provider.provider);
-    })
-    .sort((a, b) => {
-      const providerCompare = a.provider.localeCompare(b.provider);
-      if (providerCompare !== 0) return providerCompare;
-      return (a.accountKey || a.status).localeCompare(b.accountKey || b.status);
-    });
+  // Second pass: collapse by provider name. Same OAuth account on Mac vs Windows
+  // hashes to different accountKeys (keychain identity vs file path), so byKey
+  // keeps them as separate entries; without this pass the renderer's per-provider
+  // Map.set() would arbitrarily overwrite the fresh one with the stale one.
+  const byProvider = new Map();
+  for (const candidate of byKey.values()) {
+    if (!isConfiguredProvider(candidate) && providersWithConfiguredAccounts.has(candidate.provider)) continue;
+    byProvider.set(candidate.provider, pickBetterProvider(byProvider.get(candidate.provider), candidate));
+  }
+  aggregate.providers = Array.from(byProvider.values())
+    .sort((a, b) => a.provider.localeCompare(b.provider));
   return aggregate;
 }
 

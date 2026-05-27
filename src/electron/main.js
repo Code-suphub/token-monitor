@@ -82,6 +82,7 @@ function defaultSettings() {
     allTimeSince: process.env.TOKEN_MONITOR_ALL_TIME_SINCE || '2024-01-01',
     limitsEnabled: parseBoolean(process.env.TOKEN_MONITOR_LIMITS_ENABLED, true),
     limitProviders: parseLimitProviders(process.env.TOKEN_MONITOR_LIMIT_PROVIDERS).join(','),
+    limitProviderOrder: defaultLimitProviderOrder(),
     limitsRefreshMs: normalizeLimitsRefreshMs(process.env.TOKEN_MONITOR_LIMITS_REFRESH_MS),
     showLimitSource: parseBoolean(process.env.TOKEN_MONITOR_SHOW_LIMIT_SOURCE, false),
     windowBounds: null,
@@ -101,10 +102,18 @@ function defaultLimitProviders() {
   return parseLimitProviders(process.env.TOKEN_MONITOR_LIMIT_PROVIDERS).join(',');
 }
 
+function defaultLimitProviderOrder() {
+  return parseLimitProviders().join(',');
+}
+
 function migrateLimitProviders(value) {
   const normalized = parseLimitProviders(value).join(',');
   if (normalized === 'claude,codex') return defaultLimitProviders();
   return normalized;
+}
+
+function migrateLimitProviderOrder(value) {
+  return parseLimitProviders(value).join(',') || defaultLimitProviderOrder();
 }
 
 function normalizeTrayContent(value, fallback = 'tokens') {
@@ -209,6 +218,9 @@ function readSettings() {
     }
     if (saved.limitProviders !== undefined) {
       merged.limitProviders = migrateLimitProviders(saved.limitProviders);
+    }
+    if (saved.limitProviderOrder !== undefined) {
+      merged.limitProviderOrder = migrateLimitProviderOrder(saved.limitProviderOrder);
     }
     merged.hubMode = normalizeHubMode(merged.hubMode);
     merged.hubHostPort = normalizeHubPort(merged.hubHostPort);
@@ -1082,6 +1094,7 @@ app.whenReady().then(() => {
       discordRpcEnabled: patch.discordRpcEnabled ?? settings.discordRpcEnabled ?? false,
       limitsEnabled: parseBoolean(patch.limitsEnabled ?? settings.limitsEnabled, true),
       limitProviders: patch.limitProviders !== undefined ? parseLimitProviders(patch.limitProviders).join(',') : settings.limitProviders,
+      limitProviderOrder: patch.limitProviderOrder !== undefined ? migrateLimitProviderOrder(patch.limitProviderOrder) : settings.limitProviderOrder,
       limitsRefreshMs: normalizeLimitsRefreshMs(patch.limitsRefreshMs ?? settings.limitsRefreshMs),
       showLimitSource: parseBoolean(patch.showLimitSource ?? settings.showLimitSource, false),
       zoomFactor: clampZoom(patch.zoomFactor ?? settings.zoomFactor),

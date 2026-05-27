@@ -396,6 +396,42 @@ input, textarea, [contenteditable="true"] {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.settings-panel .limit-provider-list {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.settings-panel .limit-provider-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.settings-panel .limit-provider-row label.client-checkbox {
+  min-width: 0;
+}
+.limit-provider-order-controls {
+  display: flex;
+  gap: 4px;
+}
+.limit-provider-order-button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, var(--control-alpha));
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+}
+.limit-provider-order-button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.limit-provider-order-button:disabled {
+  opacity: 0.34;
+  cursor: default;
+}
 .reset-appearance-button {
   width: 24px;
   height: 24px;

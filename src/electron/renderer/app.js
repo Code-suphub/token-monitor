@@ -68,6 +68,7 @@ const LIMIT_PROVIDERS = [
   { id: 'antigravity', label: 'Antigravity' }
 ];
 const DEFAULT_LIMIT_PROVIDER_ORDER = LIMIT_PROVIDERS.map((provider) => provider.id).join(',');
+const limitProviderOrderApi = window.TokenMonitorLimitProviderOrder;
 const LIMIT_REFRESH_OPTIONS = [60000, 120000, 300000, 900000, 1800000];
 const LIMIT_SOURCE_LABELS = { oauth: 'OAuth', cli: 'CLI', web: 'Web', rpc: 'CLI' };
 const deviceAccent = '#73bdf5';
@@ -512,14 +513,21 @@ function limitProviderPlan(provider) {
 }
 
 function configuredLimitProviderOrder() {
+  const enabled = enabledLimitProviderSet();
+  return limitProviderOrderApi
+    .normalizeLimitProviderOrder(state.settings?.limitProviderOrder, LIMIT_PROVIDERS)
+    .filter((id) => enabled.has(id));
+}
+
+function configuredLimitProviderSelection() {
   const raw = state.settings?.limitProviders;
   const source = raw === undefined || raw === null ? DEFAULT_LIMIT_PROVIDER_ORDER : raw;
-  return String(source).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return limitProviderOrderApi.normalizeLimitProviderOrder(source, LIMIT_PROVIDERS);
 }
 
 function enabledLimitProviderSet() {
   if (state.settings?.limitsEnabled === false) return new Set();
-  return new Set(configuredLimitProviderOrder());
+  return new Set(configuredLimitProviderSelection());
 }
 
 function missingLimitProviderStatus() {
@@ -599,7 +607,9 @@ function renderLimits() {
   const enabled = enabledLimitProviderSet();
   const providers = new Map((state.stats?.limits?.providers || []).map((provider) => [provider.provider, provider]));
   const nodes = [];
-  const rows = LIMIT_PROVIDERS.filter(({ id }) => limitsEnabled && enabled.has(id));
+  const rows = limitProviderOrderApi
+    .orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder)
+    .filter(({ id }) => limitsEnabled && enabled.has(id));
   if (rows.length === 0) {
     els.limitsPanel.replaceChildren();
     return;
@@ -944,18 +954,15 @@ function renderClientCheckboxes() {
 
 function renderLimitProviderCheckboxes() {
   if (!els.limitProviderCheckboxes) return;
-  if (els.limitProviderCheckboxes.childElementCount === LIMIT_PROVIDERS.length) {
-    const enabled = enabledLimitProviderSet();
-    for (const cb of els.limitProviderCheckboxes.querySelectorAll('input[type=checkbox]')) {
-      cb.checked = enabled.has(cb.dataset.provider);
-    }
-    return;
-  }
   const enabled = enabledLimitProviderSet();
+  const providers = limitProviderOrderApi.orderedLimitProviders(LIMIT_PROVIDERS, state.settings?.limitProviderOrder);
   els.limitProviderCheckboxes.replaceChildren();
-  for (const { id, label, settingsLabel } of LIMIT_PROVIDERS) {
+  for (const [index, { id, label, settingsLabel }] of providers.entries()) {
+    const row = document.createElement('div');
+    row.className = 'limit-provider-row';
+    row.dataset.provider = id;
     const wrap = document.createElement('label');
-    wrap.className = 'client-checkbox';
+    wrap.className = 'client-checkbox limit-provider-toggle';
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.dataset.provider = id;
@@ -964,7 +971,27 @@ function renderLimitProviderCheckboxes() {
     const text = document.createElement('span');
     text.textContent = settingsLabel || label;
     wrap.append(cb, text);
-    els.limitProviderCheckboxes.appendChild(wrap);
+    const controls = document.createElement('div');
+    controls.className = 'limit-provider-order-controls';
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.className = 'limit-provider-order-button';
+    up.textContent = '↑';
+    up.title = `Move ${settingsLabel || label} up`;
+    up.setAttribute('aria-label', up.title);
+    up.disabled = index === 0;
+    up.addEventListener('click', () => onLimitProviderMove(id, 'up'));
+    const down = document.createElement('button');
+    down.type = 'button';
+    down.className = 'limit-provider-order-button';
+    down.textContent = '↓';
+    down.title = `Move ${settingsLabel || label} down`;
+    down.setAttribute('aria-label', down.title);
+    down.disabled = index === providers.length - 1;
+    down.addEventListener('click', () => onLimitProviderMove(id, 'down'));
+    controls.append(up, down);
+    row.append(wrap, controls);
+    els.limitProviderCheckboxes.appendChild(row);
   }
 }
 
@@ -986,6 +1013,11 @@ async function onLimitProviderToggle() {
   }
   await saveSettings({ limitProviders: checked.join(','), limitsEnabled: checked.length > 0 });
   await refreshStats({ force: true });
+}
+
+async function onLimitProviderMove(providerId, direction) {
+  const next = limitProviderOrderApi.moveLimitProvider(state.settings?.limitProviderOrder, LIMIT_PROVIDERS, providerId, direction);
+  await saveSettings({ limitProviderOrder: next });
 }
 
 async function saveSettings(patch) {

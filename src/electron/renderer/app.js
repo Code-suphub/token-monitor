@@ -876,8 +876,10 @@ function normalizeTrayContentValue(value) {
 }
 
 const BUBBLE_CONTENT_MIN_W = 18;
-const BUBBLE_CONTENT_MIN_H = 34;
+const BUBBLE_CONTENT_HEIGHT = 34;
 const BUBBLE_CONTENT_PAD_X = 10;
+// The tray bars are black (a macOS menu-bar template); on the bubble's dark glass they need light ink.
+const BUBBLE_BARS_COLORS = { track: 'rgba(255, 255, 255, 0.22)', fill: 'rgba(255, 255, 255, 0.92)' };
 
 function isBarsMode(mode) {
   return mode === 'bars' || mode === 'barsSession' || mode === 'barsWeekly' || mode === 'barsAllSessions';
@@ -885,20 +887,27 @@ function isBarsMode(mode) {
 
 function renderFloatingBubbleContent() {
   const el = els.floatingBubbleContent;
-  if (!el) return;
+  if (!el || !state.floatingBubble.collapsed) return;
   const mode = state.settings?.floatingBubbleContent || 'icon';
-  if (mode === 'icon') {
-    el.classList.remove('bars');
-    el.textContent = 'Σ';
-  } else if (isBarsMode(mode)) {
-    const dataUrl = state.stats ? barsDataUrlForMode(mode, 44) : null;
+  if (isBarsMode(mode)) {
+    const dataUrl = state.stats
+      ? barsDataUrlForMode(mode, 44, BUBBLE_BARS_COLORS, { contentOnly: mode === 'barsAllSessions' })
+      : null;
     if (dataUrl) {
       el.classList.add('bars');
-      el.innerHTML = `<img alt="" src="${dataUrl}">`;
-    } else {
-      el.classList.remove('bars');
-      el.textContent = (state.stats && window.TokenMonitorTrayText.formatTrayText(state.stats, mode, currentCurrency())) || 'Σ';
+      const img = new Image();
+      img.alt = '';
+      // A data-URL image has no layout width until it loads; size once it does.
+      img.addEventListener('load', reportFloatingBubbleSize, { once: true });
+      img.src = dataUrl;
+      el.replaceChildren(img);
+      return;
     }
+    el.classList.remove('bars');
+    el.textContent = (state.stats && window.TokenMonitorTrayText.formatTrayText(state.stats, mode, currentCurrency())) || 'Σ';
+  } else if (mode === 'icon') {
+    el.classList.remove('bars');
+    el.textContent = 'Σ';
   } else {
     el.classList.remove('bars');
     el.textContent = state.stats ? (window.TokenMonitorTrayText.formatTrayText(state.stats, mode, currentCurrency()) || '0') : '0';
@@ -910,13 +919,13 @@ function reportFloatingBubbleSize() {
   if (!state.floatingBubble.collapsed) return;
   const el = els.floatingBubbleContent;
   const mode = state.settings?.floatingBubbleContent || 'icon';
+  // Height is constant; only the width tracks the content.
   let width = BUBBLE_CONTENT_MIN_W;
-  let height = BUBBLE_CONTENT_MIN_H;
   if (mode !== 'icon' && el) {
-    width = Math.max(BUBBLE_CONTENT_MIN_W, Math.ceil(el.scrollWidth) + BUBBLE_CONTENT_PAD_X * 2);
-    height = Math.max(BUBBLE_CONTENT_MIN_H, Math.ceil(el.scrollHeight) + 6);
+    const pad = isBarsMode(mode) ? 8 : BUBBLE_CONTENT_PAD_X * 2;
+    width = Math.max(BUBBLE_CONTENT_MIN_W, Math.ceil(el.scrollWidth) + pad);
   }
-  window.tokenMonitor.setFloatingBubbleCollapsedSize?.({ width, height });
+  window.tokenMonitor.setFloatingBubbleCollapsedSize?.({ width, height: BUBBLE_CONTENT_HEIGHT });
 }
 
 const HOVER_REVEAL_DELAY_MS = 250;
@@ -1607,7 +1616,9 @@ function roundedRectPath(ctx, x, y, w, h, r) {
 
 const trayProviderImages = {};
 
-function renderBarsIcon(stats, height = 44, picker = pickWorstProvider) {
+function renderBarsIcon(stats, height = 44, picker = pickWorstProvider, colors = {}) {
+  const trackColor = colors.track || 'rgba(0, 0, 0, 0.32)';
+  const fillColor = colors.fill || 'rgba(0, 0, 0, 1)';
   const provider = picker(stats);
   if (!provider) return null;
   const session = (provider.windows || []).find((w) => w.kind === 'session');
@@ -1628,7 +1639,7 @@ function renderBarsIcon(stats, height = 44, picker = pickWorstProvider) {
 
   function drawBar(y, percent) {
     roundedRectPath(ctx, layout.barsX, y, layout.barsWidth, layout.barHeight, layout.radius);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+    ctx.fillStyle = trackColor;
     ctx.fill();
     const fillW = trayBarFillWidth(percent, layout.barsWidth);
     if (!fillW) return;
@@ -1636,7 +1647,7 @@ function renderBarsIcon(stats, height = 44, picker = pickWorstProvider) {
     ctx.save();
     roundedRectPath(ctx, layout.barsX, y, layout.barsWidth, layout.barHeight, layout.radius);
     ctx.clip();
-    ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+    ctx.fillStyle = fillColor;
     ctx.fillRect(layout.barsX, y, fillW, layout.barHeight);
     ctx.restore();
   }
@@ -1661,14 +1672,16 @@ function pickConfiguredSessionProviders(stats, configOrder) {
   return result;
 }
 
-function renderAllSessionsIcon(stats, height = 44, configOrder) {
+function renderAllSessionsIcon(stats, height = 44, configOrder, colors = {}, options = {}) {
+  const trackColor = colors.track || 'rgba(0, 0, 0, 0.32)';
+  const fillColor = colors.fill || 'rgba(0, 0, 0, 1)';
   const picks = pickConfiguredSessionProviders(stats, configOrder);
   if (picks.length === 0) return null;
   // Only one tool has session data → fall back to that tool's session+weekly view.
-  if (picks.length === 1) return renderBarsIcon(stats, height, () => picks[0].provider);
+  if (picks.length === 1) return renderBarsIcon(stats, height, () => picks[0].provider, colors);
 
   const { trayBarFillWidth, trayBarsLayout } = window.TokenMonitorTrayBars;
-  const layout = trayBarsLayout(height);
+  const layout = trayBarsLayout(height, { contentOnly: options.contentOnly === true });
   const canvas = document.createElement('canvas');
   canvas.width = layout.width;
   canvas.height = layout.height;
@@ -1676,18 +1689,18 @@ function renderAllSessionsIcon(stats, height = 44, configOrder) {
   ctx.clearRect(0, 0, layout.width, layout.height);
 
   // No per-row icons — order in the dropdown identifies which row is which tool.
-  // Bars keep the same position/width as single-tool mode so the menubar item
-  // doesn't visually balloon when switching modes.
+  // Default layout keeps menubar width stable; the bubble can request content-only
+  // output so the mini-window hugs just the visible bars.
   function drawBar(y, percent) {
     roundedRectPath(ctx, layout.barsX, y, layout.barsWidth, layout.barHeight, layout.radius);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+    ctx.fillStyle = trackColor;
     ctx.fill();
     const fillW = trayBarFillWidth(percent, layout.barsWidth);
     if (!fillW) return;
     ctx.save();
     roundedRectPath(ctx, layout.barsX, y, layout.barsWidth, layout.barHeight, layout.radius);
     ctx.clip();
-    ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+    ctx.fillStyle = fillColor;
     ctx.fillRect(layout.barsX, y, fillW, layout.barHeight);
     ctx.restore();
   }
@@ -1697,10 +1710,10 @@ function renderAllSessionsIcon(stats, height = 44, configOrder) {
   return canvas.toDataURL('image/png');
 }
 
-function barsDataUrlForMode(mode, size = 44) {
-  if (mode === 'barsAllSessions') return renderAllSessionsIcon(state.stats, size, configuredLimitProviderOrder());
+function barsDataUrlForMode(mode, size = 44, colors, options = {}) {
+  if (mode === 'barsAllSessions') return renderAllSessionsIcon(state.stats, size, configuredLimitProviderOrder(), colors, options);
   const pickers = { barsSession: pickWorstSessionProvider, barsWeekly: pickWorstWeeklyProvider };
-  return renderBarsIcon(state.stats, size, pickers[mode] || pickWorstProvider);
+  return renderBarsIcon(state.stats, size, pickers[mode] || pickWorstProvider, colors);
 }
 
 async function maybeUpdateBarsIcon() {

@@ -19,15 +19,18 @@
     return Math.min(width, Math.max(1, Math.round(width * clamped / 100)));
   }
 
-  function trayBarsLayout(height = 36) {
+  function trayBarsLayout(height = 36, options = {}) {
     const h = Math.max(16, Math.round(finiteNumber(height, 36)));
-    const width = Math.round(h * 2.06);
+    const fullWidth = Math.round(h * 2.06);
+    const contentOnly = options?.contentOnly === true;
     const padX = 0;
-    const iconSize = Math.round(h * 1);
-    const iconY = Math.round((h - iconSize) / 2);
+    const iconSize = contentOnly ? 0 : Math.round(h * 1);
+    const iconY = contentOnly ? 0 : Math.round((h - iconSize) / 2);
     const innerGap = Math.round(h * 0.14);
-    const barsX = padX + iconSize + innerGap;
-    const barsWidth = Math.max(1, width - barsX - padX);
+    const fullBarsX = padX + Math.round(h * 1) + innerGap;
+    const barsWidth = Math.max(1, fullWidth - fullBarsX - padX);
+    const width = contentOnly ? barsWidth : fullWidth;
+    const barsX = contentOnly ? 0 : fullBarsX;
     const barHeight = Math.round(h * 0.24);
     const barGap = Math.round(h * 0.13);
     const totalBarsH = barHeight * 2 + barGap;

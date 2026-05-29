@@ -107,7 +107,7 @@ input, textarea, [contenteditable="true"] {
 .floating-bubble-tab span.bars img {
   display: block;
   width: auto;
-  height: 100%;
+  height: 24px;
 }
 .floating-bubble-tab.dragging { cursor: grabbing; }
 html.floating-bubble-collapsed-left,

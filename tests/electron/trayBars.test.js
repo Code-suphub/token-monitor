@@ -32,3 +32,19 @@ test('trayBarsLayout keeps the original compact menubar proportions', () => {
     radius: 4.5
   });
 });
+
+test('trayBarsLayout can fit the canvas to the compact bars only', () => {
+  assert.deepEqual(trayBarsLayout(36, { contentOnly: true }), {
+    width: 33,
+    height: 36,
+    padX: 0,
+    iconSize: 0,
+    iconY: 0,
+    barsX: 0,
+    barsWidth: 33,
+    barHeight: 9,
+    barGap: 5,
+    barsStartY: 7,
+    radius: 4.5
+  });
+});

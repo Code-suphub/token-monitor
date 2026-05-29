@@ -83,7 +83,7 @@ const initialFloatingBubble = window.__TOKEN_MONITOR_INITIAL_FLOATING_BUBBLE__ |
 const state = { period: 'today', appUpdate: null, breakdown: 'tool', settings: null, stats: null, refreshTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true };
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, showLiveDot: true, showToolIcons: true, titleIconOnly: false };
 const els = {
-  shell: document.querySelector('.shell'), status: document.getElementById('status'), liveDot: document.getElementById('liveDot'), totalTokens: document.getElementById('totalTokens'), cost: document.getElementById('cost'), breakdown: document.getElementById('breakdown'), limitsPanel: document.getElementById('limitsPanel'), breakdownToggle: document.getElementById('breakdownToggle'), pinButton: document.getElementById('pinButton'), settingsButton: document.getElementById('settingsButton'), settingsPanel: document.getElementById('settingsPanel'), languageInput: document.getElementById('languageInput'), currencyInput: document.getElementById('currencyInput'), hubUrlInput: document.getElementById('hubUrlInput'), secretInput: document.getElementById('secretInput'), deviceIdInput: document.getElementById('deviceIdInput'), limitProviderCheckboxes: document.getElementById('limitProviderCheckboxes'), limitsRefreshInput: document.getElementById('limitsRefreshInput'), showLimitSourceInput: document.getElementById('showLimitSourceInput'), systemGlassInput: document.getElementById('systemGlassInput'), liveDotInput: document.getElementById('liveDotInput'), toolIconsInput: document.getElementById('toolIconsInput'), floatingBubbleInput: document.getElementById('floatingBubbleInput'), discordRpcInput: document.getElementById('discordRpcInput'), windowBehaviorInput: document.getElementById('windowBehaviorInput'), trayModeInput: document.getElementById('trayModeInput'), trayContentInput: document.getElementById('trayContentInput'), glassInput: document.getElementById('glassInput'), blurInput: document.getElementById('blurInput'), zoomInput: document.getElementById('zoomInput'), resetGlassButton: document.getElementById('resetGlassButton'), resetDepthButton: document.getElementById('resetDepthButton'), resetZoomButton: document.getElementById('resetZoomButton'), saveSettingsButton: document.getElementById('saveSettingsButton'), clientCheckboxes: document.getElementById('clientCheckboxes'), openConfigButton: document.getElementById('openConfigButton'), refreshButton: document.getElementById('refreshButton'), minButton: document.getElementById('minButton'), closeButton: document.getElementById('closeButton'), floatingBubbleTab: document.getElementById('floatingBubbleTab')
+  shell: document.querySelector('.shell'), status: document.getElementById('status'), liveDot: document.getElementById('liveDot'), totalTokens: document.getElementById('totalTokens'), cost: document.getElementById('cost'), breakdown: document.getElementById('breakdown'), limitsPanel: document.getElementById('limitsPanel'), breakdownToggle: document.getElementById('breakdownToggle'), pinButton: document.getElementById('pinButton'), settingsButton: document.getElementById('settingsButton'), settingsPanel: document.getElementById('settingsPanel'), languageInput: document.getElementById('languageInput'), currencyInput: document.getElementById('currencyInput'), hubUrlInput: document.getElementById('hubUrlInput'), secretInput: document.getElementById('secretInput'), deviceIdInput: document.getElementById('deviceIdInput'), limitProviderCheckboxes: document.getElementById('limitProviderCheckboxes'), limitsRefreshInput: document.getElementById('limitsRefreshInput'), showLimitSourceInput: document.getElementById('showLimitSourceInput'), systemGlassInput: document.getElementById('systemGlassInput'), liveDotInput: document.getElementById('liveDotInput'), toolIconsInput: document.getElementById('toolIconsInput'), floatingBubbleInput: document.getElementById('floatingBubbleInput'), floatingBubbleTriggerInput: document.getElementById('floatingBubbleTriggerInput'), floatingBubbleTriggerRow: document.getElementById('floatingBubbleTriggerRow'), discordRpcInput: document.getElementById('discordRpcInput'), windowBehaviorInput: document.getElementById('windowBehaviorInput'), trayModeInput: document.getElementById('trayModeInput'), trayContentInput: document.getElementById('trayContentInput'), glassInput: document.getElementById('glassInput'), blurInput: document.getElementById('blurInput'), zoomInput: document.getElementById('zoomInput'), resetGlassButton: document.getElementById('resetGlassButton'), resetDepthButton: document.getElementById('resetDepthButton'), resetZoomButton: document.getElementById('resetZoomButton'), saveSettingsButton: document.getElementById('saveSettingsButton'), clientCheckboxes: document.getElementById('clientCheckboxes'), openConfigButton: document.getElementById('openConfigButton'), refreshButton: document.getElementById('refreshButton'), minButton: document.getElementById('minButton'), closeButton: document.getElementById('closeButton'), floatingBubbleTab: document.getElementById('floatingBubbleTab')
 };
 Object.assign(els, {
   hubModeOptions: document.getElementById('hubModeOptions'),
@@ -868,6 +868,49 @@ function applyFloatingBubbleState(payload = {}) {
   }
 }
 
+const HOVER_REVEAL_DELAY_MS = 250;
+const HOVER_COLLAPSE_GRACE_MS = 200;
+let floatingBubbleHoverRevealTimer = null;
+let floatingBubbleHoverCollapseTimer = null;
+let suppressHoverRevealUntilReentry = false;
+
+function floatingBubbleHoverMode() {
+  return state.settings?.floatingBubbleTrigger === 'hover' && state.settings?.floatingBubbleEnabled === true;
+}
+
+function clearHoverRevealTimer() {
+  if (floatingBubbleHoverRevealTimer) { clearTimeout(floatingBubbleHoverRevealTimer); floatingBubbleHoverRevealTimer = null; }
+}
+
+function clearHoverCollapseTimer() {
+  if (floatingBubbleHoverCollapseTimer) { clearTimeout(floatingBubbleHoverCollapseTimer); floatingBubbleHoverCollapseTimer = null; }
+}
+
+function handleFloatingBubbleHoverEnter() {
+  if (!floatingBubbleHoverMode() || !state.floatingBubble.collapsed || suppressHoverRevealUntilReentry) return;
+  clearHoverRevealTimer();
+  floatingBubbleHoverRevealTimer = setTimeout(() => {
+    floatingBubbleHoverRevealTimer = null;
+    if (!floatingBubbleHoverMode() || !state.floatingBubble.collapsed || floatingBubbleDrag) return;
+    window.tokenMonitor.peekFloatingBubble?.();
+  }, HOVER_REVEAL_DELAY_MS);
+}
+
+function handleFloatingBubbleHoverLeave() {
+  clearHoverRevealTimer();
+  suppressHoverRevealUntilReentry = false;
+}
+
+function handleDocumentHoverLeave() {
+  if (!floatingBubbleHoverMode() || state.floatingBubble.collapsed) return;
+  clearHoverCollapseTimer();
+  floatingBubbleHoverCollapseTimer = setTimeout(() => {
+    floatingBubbleHoverCollapseTimer = null;
+    if (!floatingBubbleHoverMode() || state.floatingBubble.collapsed) return;
+    window.tokenMonitor.collapseFloatingBubbleIfIdle?.();
+  }, HOVER_COLLAPSE_GRACE_MS);
+}
+
 let floatingBubbleDrag = null;
 
 function floatingBubblePointerOffset(event) {
@@ -897,6 +940,7 @@ function finishFloatingBubbleDrag(pointerId) {
 
 function handleFloatingBubblePointerDown(event) {
   if (!state.floatingBubble.collapsed || event.button !== 0) return;
+  clearHoverRevealTimer();
   floatingBubbleDrag = {
     pointerId: event.pointerId,
     startX: event.screenX,
@@ -931,6 +975,7 @@ function handleFloatingBubblePointerUp(event) {
   if (!drag) return;
   if (!drag.moved) window.tokenMonitor.expandFloatingBubble?.();
   else {
+    suppressHoverRevealUntilReentry = true;
     const move = window.tokenMonitor.moveFloatingBubble?.({
       offsetX: drag.offsetX,
       offsetY: drag.offsetY,
@@ -1075,6 +1120,8 @@ function syncSettingsForm() {
   els.discordRpcInput.checked = Boolean(state.settings.discordRpcEnabled);
   syncWindowBehaviorControls();
   els.floatingBubbleInput.checked = state.settings.floatingBubbleEnabled === true;
+  if (els.floatingBubbleTriggerInput) els.floatingBubbleTriggerInput.value = state.settings.floatingBubbleTrigger === 'hover' ? 'hover' : 'click';
+  els.floatingBubbleTriggerRow?.classList.toggle('hidden', state.settings.floatingBubbleEnabled !== true);
   els.trayModeInput.checked = Boolean(state.settings.trayMode);
   els.trayContentInput.value = ['tokens', 'cost', 'both', 'tokensAll', 'costAll', 'bothAll', 'bars', 'barsSession', 'barsWeekly', 'barsAllSessions', 'icon'].includes(state.settings.trayContent) ? state.settings.trayContent : 'tokens';
   els.startupGroup?.classList.toggle('hidden', !state.appInfo?.loginItemSupported);
@@ -1347,7 +1394,11 @@ els.toolIconsInput.addEventListener('change', saveAppearanceFromControls);
 els.titleIconInput.addEventListener('change', saveAppearanceFromControls);
 els.discordRpcInput.addEventListener('change', saveAppearanceFromControls);
 els.windowBehaviorInput.addEventListener('change', () => saveSettings({ windowBehavior: els.windowBehaviorInput.value }));
-els.floatingBubbleInput.addEventListener('change', () => saveSettings({ floatingBubbleEnabled: els.floatingBubbleInput.checked }));
+els.floatingBubbleInput.addEventListener('change', () => {
+  els.floatingBubbleTriggerRow?.classList.toggle('hidden', !els.floatingBubbleInput.checked);
+  saveSettings({ floatingBubbleEnabled: els.floatingBubbleInput.checked });
+});
+els.floatingBubbleTriggerInput?.addEventListener('change', () => saveSettings({ floatingBubbleTrigger: els.floatingBubbleTriggerInput.value }));
 els.trayModeInput.addEventListener('change', () => saveSettings({ trayMode: els.trayModeInput.checked }));
 els.trayContentInput.addEventListener('change', () => saveSettings({ trayContent: els.trayContentInput.value }));
 els.startAtLoginInput?.addEventListener('change', () => saveSettings({ startAtLogin: els.startAtLoginInput.checked }));
@@ -1370,6 +1421,10 @@ els.floatingBubbleTab.addEventListener('pointerdown', handleFloatingBubblePointe
 els.floatingBubbleTab.addEventListener('pointermove', handleFloatingBubblePointerMove);
 els.floatingBubbleTab.addEventListener('pointerup', handleFloatingBubblePointerUp);
 els.floatingBubbleTab.addEventListener('pointercancel', (event) => { finishFloatingBubbleDrag(event.pointerId); });
+els.floatingBubbleTab.addEventListener('mouseenter', handleFloatingBubbleHoverEnter);
+els.floatingBubbleTab.addEventListener('mouseleave', handleFloatingBubbleHoverLeave);
+document.documentElement.addEventListener('mouseleave', handleDocumentHoverLeave);
+document.documentElement.addEventListener('mouseenter', clearHoverCollapseTimer);
 els.floatingBubbleTab.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter' && event.key !== ' ') return;
   event.preventDefault();

@@ -97,6 +97,7 @@ function defaultSettings() {
     showToolIcons: true,
     titleIconOnly: false,
     floatingBubbleEnabled: false,
+    floatingBubbleTrigger: 'click',
     floatingBubbleBounds: null,
     discordRpcEnabled: false,
     deviceId: process.env.TOKEN_MONITOR_DEVICE_ID || defaultDeviceId(),
@@ -347,7 +348,8 @@ function expandFloatingBubble(options = {}) {
         collapsedFloatingBubble: false,
         focus: options.focus !== false,
         suppressInitialNumberAnimation: true,
-        waitForContent: true
+        waitForContent: true,
+        inactive: options.focus === false
       });
       setTimeout(() => { floatingBubbleState.suppressNextCollapse = false; }, 300);
       sendFloatingBubbleState();
@@ -473,6 +475,7 @@ function readSettings() {
     merged.hubHostSecret = typeof merged.hubHostSecret === 'string' ? merged.hubHostSecret : '';
     merged.floatingBubbleEnabled = parseBoolean(merged.floatingBubbleEnabled ?? merged.edgeDrawerEnabled, false);
     delete merged.edgeDrawerEnabled;
+    merged.floatingBubbleTrigger = merged.floatingBubbleTrigger === 'hover' ? 'hover' : 'click';
     return normalizeWindowBehaviorSettings(merged);
   }
   catch (_error) { return normalizeWindowBehaviorSettings(defaultSettings()); }
@@ -1192,9 +1195,10 @@ function isAllowedExternalUrl(value) {
   return false;
 }
 
-function revealWindow(target = mainWindow) {
+function revealWindow(target = mainWindow, options = {}) {
   if (!target || target.isDestroyed() || target.isVisible()) return;
-  if (target === mainWindow && floatingBubbleState.collapsed && typeof target.showInactive === 'function') {
+  const inactive = options.inactive === true || (target === mainWindow && floatingBubbleState.collapsed);
+  if (inactive && typeof target.showInactive === 'function') {
     target.showInactive();
     return;
   }
@@ -1207,7 +1211,7 @@ function loadWindowFile(target, options = {}) {
     if (revealed) return;
     revealed = true;
     if (settings?.trayMode) return; // stay hidden until tray click
-    revealWindow(target);
+    revealWindow(target, { inactive: options.inactive === true });
   };
   const waitForContent = options.waitForContent === true;
   const onContentReady = (event) => {
@@ -1312,6 +1316,7 @@ function createWindow(boundsOverride, options = {}) {
   win.webContents.once('did-finish-load', sendFloatingBubbleState);
   loadWindowFile(win, {
     waitForContent: options.waitForContent === true,
+    inactive: options.inactive === true,
     query: floatingBubbleInitialRendererQuery(floatingBubbleState, {
       collapsedWindow: collapsedFloatingBubble,
       suppressInitialNumberAnimation: options.suppressInitialNumberAnimation === true
@@ -1342,7 +1347,8 @@ function replaceMainWindow(bounds, options = {}) {
   createWindow(bounds, {
     collapsedFloatingBubble: options.collapsedFloatingBubble === true,
     suppressInitialNumberAnimation: options.suppressInitialNumberAnimation === true,
-    waitForContent: options.waitForContent === true
+    waitForContent: options.waitForContent === true,
+    inactive: options.inactive === true
   });
   const next = mainWindow;
   next.once('show', () => {
@@ -1509,6 +1515,23 @@ app.whenReady().then(() => {
     return true;
   });
   ipcMain.handle('floatingBubble:expand', () => expandFloatingBubble());
+  ipcMain.handle('floatingBubble:peek', () => expandFloatingBubble({ focus: false }));
+  ipcMain.handle('floatingBubble:collapseIfIdle', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return false;
+    if (floatingBubbleState.collapsed || !canUseFloatingBubble(settings)) return false;
+    if (mainWindow.isFocused()) return false; // promoted to a focused window; let blur handle collapse
+    const bounds = mainWindow.getBounds();
+    if (typeof screen.getCursorScreenPoint === 'function') {
+      const pt = screen.getCursorScreenPoint();
+      const inside = pt.x >= bounds.x && pt.x < bounds.x + bounds.width &&
+        pt.y >= bounds.y && pt.y < bounds.y + bounds.height;
+      if (inside) return false; // cursor returned during the grace window
+    }
+    // A hover peek never receives focus and never blurs, so a stale suppress flag
+    // must not be allowed to wedge it open.
+    floatingBubbleState.suppressNextCollapse = false;
+    return maybeCollapseFloatingBubble(bounds);
+  });
   ipcMain.handle('floatingBubble:move', (_event, delta) => {
     if (!mainWindow || mainWindow.isDestroyed() || !floatingBubbleState.collapsed) return false;
     const current = mainWindow.getBounds();

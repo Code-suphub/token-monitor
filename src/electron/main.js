@@ -32,6 +32,7 @@ const {
   floatingBubbleCollapsedArea,
   floatingBubbleCollapsedMargin,
   floatingBubbleCollapsePlan,
+  floatingBubbleInitialRendererQuery,
   floatingBubbleNativeGlassEnabled,
   floatingBubbleSide,
   floatingBubbleWindowChrome,
@@ -342,7 +343,11 @@ function expandFloatingBubble(options = {}) {
     floatingBubbleState.suppressNextCollapse = true;
     if (process.platform === 'win32' && mainWindowChrome.collapsedFloatingBubble) {
       persistWindowBounds(target);
-      replaceMainWindow(target, { collapsedFloatingBubble: false, focus: options.focus !== false });
+      replaceMainWindow(target, {
+        collapsedFloatingBubble: false,
+        focus: options.focus !== false,
+        suppressInitialNumberAnimation: true
+      });
       setTimeout(() => { floatingBubbleState.suppressNextCollapse = false; }, 300);
       sendFloatingBubbleState();
       return true;
@@ -1195,7 +1200,7 @@ function revealWindow(target = mainWindow) {
   target.show();
 }
 
-function loadWindowFile(target) {
+function loadWindowFile(target, options = {}) {
   let revealed = false;
   const reveal = () => {
     if (revealed) return;
@@ -1216,7 +1221,9 @@ function loadWindowFile(target) {
     console.log(`[window] renderer load failed: ${code} ${description}`);
     reveal();
   });
-  target.loadFile(path.join(__dirname, 'renderer', 'index.html')).catch((error) => {
+  const filePath = path.join(__dirname, 'renderer', 'index.html');
+  const load = options.query ? target.loadFile(filePath, { query: options.query }) : target.loadFile(filePath);
+  load.catch((error) => {
     console.log(`[window] renderer load failed: ${error.message}`);
     reveal();
   });
@@ -1287,7 +1294,12 @@ function createWindow(boundsOverride, options = {}) {
   });
   win.webContents.on('before-input-event', handleZoomShortcut);
   win.webContents.once('did-finish-load', sendFloatingBubbleState);
-  loadWindowFile(win);
+  loadWindowFile(win, {
+    query: floatingBubbleInitialRendererQuery(floatingBubbleState, {
+      collapsedWindow: collapsedFloatingBubble,
+      suppressInitialNumberAnimation: options.suppressInitialNumberAnimation === true
+    })
+  });
 }
 
 function handleZoomShortcut(event, input) {
@@ -1310,7 +1322,10 @@ function replaceMainWindow(bounds, options = {}) {
   if (old && !old.isDestroyed()) old.removeAllListeners('close');
   // Build the new window first so total window count never drops to 0
   // (otherwise window-all-closed fires and quits the app on Windows).
-  createWindow(bounds, { collapsedFloatingBubble: options.collapsedFloatingBubble === true });
+  createWindow(bounds, {
+    collapsedFloatingBubble: options.collapsedFloatingBubble === true,
+    suppressInitialNumberAnimation: options.suppressInitialNumberAnimation === true
+  });
   const next = mainWindow;
   next.once('show', () => {
     if (old && !old.isDestroyed()) old.destroy();

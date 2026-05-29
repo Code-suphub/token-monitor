@@ -13,6 +13,7 @@ const {
   floatingBubbleCollapsedArea,
   floatingBubbleCollapsedMargin,
   floatingBubbleCollapsePlan,
+  floatingBubbleInitialRendererQuery,
   floatingBubbleNativeGlassEnabled,
   floatingBubbleWindowChrome,
   moveFloatingBubbleBounds
@@ -24,6 +25,8 @@ const windowsDisplay = {
   workArea: { x: 0, y: 0, width: 1840, height: 1040 }
 };
 const stylesPath = path.join(__dirname, '..', '..', 'src', 'electron', 'renderer', 'styles.css');
+const indexPath = path.join(__dirname, '..', '..', 'src', 'electron', 'renderer', 'index.html');
+const bootPath = path.join(__dirname, '..', '..', 'src', 'electron', 'renderer', 'floatingBubbleBoot.js');
 
 function cssBlock(css, selectorPattern) {
   const match = css.match(new RegExp(`${selectorPattern}\\s*\\{([\\s\\S]*?)\\}`));
@@ -44,6 +47,14 @@ test('floating bubble disables native system glass while collapsed', () => {
   assert.equal(floatingBubbleNativeGlassEnabled({ systemGlass: false }, { collapsed: false }), false);
   assert.equal(
     floatingBubbleNativeGlassEnabled({ systemGlass: true, floatingBubbleEnabled: true }, { collapsed: false }, 'win32'),
+    true
+  );
+  assert.equal(
+    floatingBubbleNativeGlassEnabled({ systemGlass: false, floatingBubbleEnabled: true }, { collapsed: false }, 'win32'),
+    false
+  );
+  assert.equal(
+    floatingBubbleNativeGlassEnabled({ systemGlass: true, floatingBubbleEnabled: true }, { collapsed: true }, 'win32'),
     false
   );
   assert.equal(
@@ -68,6 +79,30 @@ test('floatingBubbleWindowChrome removes Windows native frame only for collapsed
   });
   assert.deepEqual(floatingBubbleWindowChrome('win32', false), {});
   assert.deepEqual(floatingBubbleWindowChrome('darwin', true), {});
+});
+
+test('floatingBubbleInitialRendererQuery primes the first collapsed mini-window paint', () => {
+  assert.deepEqual(
+    floatingBubbleInitialRendererQuery({ collapsed: true, side: 'right' }, true),
+    { floatingBubbleSide: 'right' }
+  );
+  assert.equal(floatingBubbleInitialRendererQuery({ collapsed: true, side: 'top' }, true), null);
+  assert.equal(floatingBubbleInitialRendererQuery({ collapsed: false, side: 'right' }, true), null);
+  assert.equal(floatingBubbleInitialRendererQuery({ collapsed: true, side: 'right' }, false), null);
+  assert.deepEqual(
+    floatingBubbleInitialRendererQuery(
+      { collapsed: false, side: null },
+      { suppressInitialNumberAnimation: true }
+    ),
+    { suppressInitialNumberAnimation: '1' }
+  );
+  assert.deepEqual(
+    floatingBubbleInitialRendererQuery(
+      { collapsed: true, side: 'left' },
+      { collapsedWindow: true, suppressInitialNumberAnimation: true }
+    ),
+    { floatingBubbleSide: 'left', suppressInitialNumberAnimation: '1' }
+  );
 });
 
 test('collapsedFloatingBubbleBounds keeps the current narrow mini-window shape without requiring an edge', () => {
@@ -261,6 +296,13 @@ test('dragFloatingBubbleBounds anchors the mini-window to the OS cursor point', 
 
 test('floating bubble collapsed styles fill the mini window with app glass styling', () => {
   const css = fs.readFileSync(stylesPath, 'utf8');
+  const html = fs.readFileSync(indexPath, 'utf8');
+  const boot = fs.readFileSync(bootPath, 'utf8');
+  assert.ok(html.indexOf('floatingBubbleBoot.js') < html.indexOf('styles.css'));
+  assert.match(boot, /floatingBubbleSide/);
+  assert.match(boot, /suppressInitialNumberAnimation/);
+  assert.match(boot, /__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__/);
+  assert.match(boot, /document\.documentElement\.classList\.add/);
   assert.match(css, /html\.floating-bubble-collapsed-left,\s*body\.floating-bubble-collapsed-left/);
   assert.match(css, /html\.floating-bubble-collapsed-right,\s*body\.floating-bubble-collapsed-right/);
   const collapsedBlock = cssBlock(css, 'html\\.floating-bubble-collapsed-left,\\s*body\\.floating-bubble-collapsed-left,\\s*html\\.floating-bubble-collapsed-right,\\s*body\\.floating-bubble-collapsed-right');
@@ -271,5 +313,7 @@ test('floating bubble collapsed styles fill the mini window with app glass styli
   assert.match(tabBlock, /background:\s*transparent;/);
   assert.match(tabBlock, /box-shadow:\s*none;/);
   assert.match(tabBlock, /backdrop-filter:\s*none;/);
+  assert.match(css, /html\.floating-bubble-collapsed-left body \.shell,\s*html\.floating-bubble-collapsed-right body \.shell/);
+  assert.match(css, /html\.floating-bubble-collapsed-left body \.floating-bubble-tab/);
   assert.match(css, /html\.floating-bubble-collapsed-left,\s*body\.floating-bubble-collapsed-left\s*\{[\s\S]*border-radius:\s*0;/);
 });

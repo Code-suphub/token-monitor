@@ -17,7 +17,7 @@ function canUseFloatingBubble(settings = {}) {
 }
 
 function floatingBubbleNativeGlassEnabled(settings = {}, state = {}, platform = process.platform) {
-  if (platform === 'win32' && settings?.floatingBubbleEnabled === true) return false;
+  if (platform === 'win32' && state?.collapsed === true) return false;
   return settings?.systemGlass !== false && state?.collapsed !== true;
 }
 
@@ -37,6 +37,19 @@ function floatingBubbleWindowChrome(platform = process.platform, collapsed = fal
     roundedCorners: false,
     thickFrame: false
   };
+}
+
+function floatingBubbleInitialRendererQuery(state = {}, options = false) {
+  const collapsedWindow = typeof options === 'object' ? options.collapsedWindow === true : options === true;
+  const side = collapsedWindow && state?.collapsed === true && ['left', 'right'].includes(state.side)
+    ? state.side
+    : null;
+  const query = {};
+  if (side) query.floatingBubbleSide = side;
+  if (typeof options === 'object' && options.suppressInitialNumberAnimation === true) {
+    query.suppressInitialNumberAnimation = '1';
+  }
+  return Object.keys(query).length ? query : null;
 }
 
 function normalizeHandleSize(width = FLOATING_BUBBLE_HANDLE_WIDTH, height = FLOATING_BUBBLE_HANDLE_HEIGHT) {
@@ -166,6 +179,7 @@ module.exports = {
   floatingBubbleCollapsedArea,
   floatingBubbleCollapsedMargin,
   floatingBubbleCollapsePlan,
+  floatingBubbleInitialRendererQuery,
   floatingBubbleNativeGlassEnabled,
   floatingBubbleSide,
   floatingBubbleWindowChrome,

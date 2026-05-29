@@ -70,6 +70,69 @@ input, textarea, [contenteditable="true"] {
   border-radius: inherit;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 36%);
 }
+.floating-bubble-tab {
+  -webkit-app-region: no-drag;
+  -webkit-appearance: none;
+  appearance: none;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  cursor: grab;
+  box-shadow: none;
+  outline: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.floating-bubble-tab span {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+.floating-bubble-tab.dragging { cursor: grabbing; }
+html.floating-bubble-collapsed-left,
+body.floating-bubble-collapsed-left,
+html.floating-bubble-collapsed-right,
+body.floating-bubble-collapsed-right {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, var(--highlight-alpha)), rgba(255, 255, 255, 0.022)),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), rgba(0, 0, 0, 0.09)),
+    var(--glass),
+    rgb(var(--glass-rgb));
+}
+html.floating-bubble-collapsed-left,
+body.floating-bubble-collapsed-left {
+  border-radius: 0;
+}
+html.floating-bubble-collapsed-right,
+body.floating-bubble-collapsed-right {
+  border-radius: 0;
+}
+body.floating-bubble-collapsed-left .shell,
+body.floating-bubble-collapsed-right .shell {
+  opacity: 0;
+  pointer-events: none;
+}
+body.floating-bubble-collapsed-left .floating-bubble-tab {
+  display: flex;
+  border-radius: 0;
+}
+body.floating-bubble-collapsed-right .floating-bubble-tab {
+  display: flex;
+  border-radius: 0;
+}
+.floating-bubble-tab:hover {
+  color: var(--text);
+}
 .titlebar {
   -webkit-app-region: drag;
   position: relative;

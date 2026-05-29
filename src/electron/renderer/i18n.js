@@ -89,6 +89,8 @@
       'settings.windowBehavior.normal': 'Normal window',
       'settings.windowBehavior.desktop': 'Desktop pinned',
       'settings.windowBehavior.buttonTitle': '{current}; click for {next}',
+      'settings.display.floatingBubble': 'Floating Bubble',
+      'settings.display.floatingBubbleNote': 'Collapse the widget into a slim draggable mini-window; click it to reopen.',
       'settings.display.trayMode': 'Tray Mode',
       'settings.display.trayNote': 'Hide the floating window; show a popover from the macOS menu bar or Windows system tray.',
       'settings.display.trayText': 'Tray text',
@@ -160,7 +162,8 @@
       'settings.age.daysAgo': '{days}d ago',
       'settings.advanced.title': 'Advanced',
       'settings.advanced.note': 'Additional options are available in',
-      'settings.advanced.openConfig': 'Open Config'
+      'settings.advanced.openConfig': 'Open Config',
+      'floatingBubble.expand': 'Show Token Monitor'
     },
     'zh-TW': {
       'settings.language.title': '語言',
@@ -238,6 +241,8 @@
       'settings.windowBehavior.normal': '一般視窗',
       'settings.windowBehavior.desktop': '固定在桌面',
       'settings.windowBehavior.buttonTitle': '目前：{current}；點擊切換為 {next}',
+      'settings.display.floatingBubble': '懸浮小窗',
+      'settings.display.floatingBubbleNote': '將 widget 收成可拖曳的窄長小窗，點擊即可重新展開。',
       'settings.display.trayMode': '托盤模式',
       'settings.display.trayNote': '隱藏浮動視窗；改從 macOS 選單列或 Windows 系統匣顯示彈出視窗。',
       'settings.display.trayText': '托盤文字',
@@ -309,7 +314,8 @@
       'settings.age.daysAgo': '{days} 天前',
       'settings.advanced.title': '進階',
       'settings.advanced.note': '其他選項可在這裡調整：',
-      'settings.advanced.openConfig': '開啟設定檔'
+      'settings.advanced.openConfig': '開啟設定檔',
+      'floatingBubble.expand': '顯示 Token Monitor'
     },
     'zh-CN': {
       'settings.language.title': '语言',
@@ -387,6 +393,8 @@
       'settings.windowBehavior.normal': '普通窗口',
       'settings.windowBehavior.desktop': '固定在桌面',
       'settings.windowBehavior.buttonTitle': '当前：{current}；点击切换为 {next}',
+      'settings.display.floatingBubble': '悬浮小窗',
+      'settings.display.floatingBubbleNote': '将组件收成可拖动的窄长小窗，点击即可重新展开。',
       'settings.display.trayMode': '托盘模式',
       'settings.display.trayNote': '隐藏浮动窗口；改从 macOS 菜单栏或 Windows 系统托盘显示弹窗。',
       'settings.display.trayText': '托盘文字',
@@ -458,7 +466,8 @@
       'settings.age.daysAgo': '{days} 天前',
       'settings.advanced.title': '高级',
       'settings.advanced.note': '其他选项可在这里调整：',
-      'settings.advanced.openConfig': '打开配置'
+      'settings.advanced.openConfig': '打开配置',
+      'floatingBubble.expand': '显示 Token Monitor'
     }
   };
 

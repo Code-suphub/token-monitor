@@ -1,0 +1,122 @@
+'use strict';
+
+const FLOATING_BUBBLE_HANDLE_WIDTH = 18;
+const FLOATING_BUBBLE_HANDLE_HEIGHT = 34;
+const FLOATING_BUBBLE_MARGIN = 8;
+const FLOATING_BUBBLE_COLLAPSED_MARGIN = { x: 0, y: FLOATING_BUBBLE_MARGIN };
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, Number(value)));
+}
+
+function canUseFloatingBubble(settings = {}) {
+  return settings.floatingBubbleEnabled === true &&
+    settings.trayMode !== true &&
+    settings.windowBehavior !== 'desktop';
+}
+
+function floatingBubbleNativeGlassEnabled(settings = {}, state = {}) {
+  return settings?.systemGlass !== false && state?.collapsed !== true;
+}
+
+function normalizeHandleSize(width = FLOATING_BUBBLE_HANDLE_WIDTH, height = FLOATING_BUBBLE_HANDLE_HEIGHT) {
+  return {
+    width: Math.max(12, Math.round(Number(width) || FLOATING_BUBBLE_HANDLE_WIDTH)),
+    height: Math.max(32, Math.round(Number(height) || FLOATING_BUBBLE_HANDLE_HEIGHT))
+  };
+}
+
+function floatingBubbleSide(bounds, workArea) {
+  if (!bounds || !workArea) return null;
+  const centerX = Number(bounds.x) + (Number(bounds.width) / 2);
+  const workAreaCenterX = Number(workArea.x) + (Number(workArea.width) / 2);
+  return centerX <= workAreaCenterX ? 'left' : 'right';
+}
+
+function clampBounds(bounds, workArea, margin = FLOATING_BUBBLE_MARGIN) {
+  if (!bounds || !workArea) return null;
+  const width = Math.round(Number(bounds.width));
+  const height = Math.round(Number(bounds.height));
+  const x = Number(bounds.x);
+  const y = Number(bounds.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y) ||
+    !Number.isFinite(width) || !Number.isFinite(height) ||
+    width <= 0 || height <= 0) return null;
+  const marginX = typeof margin === 'object' ? Number(margin.x || 0) : Number(margin || 0);
+  const marginY = typeof margin === 'object' ? Number(margin.y || 0) : Number(margin || 0);
+  const minX = Number(workArea.x) + marginX;
+  const maxX = Number(workArea.x) + Number(workArea.width) - width - marginX;
+  const minY = Number(workArea.y) + marginY;
+  const maxY = Number(workArea.y) + Number(workArea.height) - height - marginY;
+  let clampedX = clamp(x, minX, Math.max(minX, maxX));
+  if (typeof margin === 'object') {
+    if (Math.abs(clampedX - minX) <= FLOATING_BUBBLE_MARGIN) clampedX = minX;
+    else if (Math.abs(clampedX - maxX) <= FLOATING_BUBBLE_MARGIN) clampedX = maxX;
+  }
+  return {
+    x: Math.round(clampedX),
+    y: Math.round(clamp(y, minY, Math.max(minY, maxY))),
+    width,
+    height
+  };
+}
+
+function collapsedFloatingBubbleBounds(bounds, workArea, options = {}) {
+  if (!bounds || !workArea) return null;
+  const { width, height } = normalizeHandleSize(options.handleWidth, options.handleHeight);
+  if (options.collapsedBounds) {
+    const previous = clampBounds({ ...options.collapsedBounds, width, height }, workArea, FLOATING_BUBBLE_COLLAPSED_MARGIN);
+    if (previous) return previous;
+  }
+  const side = options.side || floatingBubbleSide(bounds, workArea);
+  const y = Number(bounds.y) + (Number(bounds.height) - height) / 2;
+  const x = side === 'left'
+    ? Number(bounds.x)
+    : Number(bounds.x) + Number(bounds.width) - width;
+  return clampBounds({ x, y, width, height }, workArea, FLOATING_BUBBLE_COLLAPSED_MARGIN);
+}
+
+function expandedFloatingBubbleBounds(collapsedBounds, workArea, previousExpandedBounds, margin = FLOATING_BUBBLE_MARGIN) {
+  if (!collapsedBounds || !workArea || !previousExpandedBounds) return null;
+  const width = Math.round(Number(previousExpandedBounds.width));
+  const height = Math.round(Number(previousExpandedBounds.height));
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  const side = floatingBubbleSide(collapsedBounds, workArea);
+  const x = side === 'left'
+    ? Number(collapsedBounds.x)
+    : Number(collapsedBounds.x) + Number(collapsedBounds.width) - width;
+  const y = Number(collapsedBounds.y) + (Number(collapsedBounds.height) - height) / 2;
+  return clampBounds({ x, y, width, height }, workArea, margin);
+}
+
+function floatingBubbleCollapsePlan(bounds, workArea, settings = {}, options = {}) {
+  if (options.suppressNextCollapse || options.collapsed || !canUseFloatingBubble(settings)) return null;
+  const expandedBounds = clampBounds(bounds, workArea);
+  const collapsedBounds = collapsedFloatingBubbleBounds(expandedBounds || bounds, workArea, {
+    collapsedBounds: options.collapsedBounds
+  });
+  if (!expandedBounds || !collapsedBounds) return null;
+  return { side: floatingBubbleSide(collapsedBounds, workArea), expandedBounds, collapsedBounds };
+}
+
+function moveFloatingBubbleBounds(bounds, workArea, delta = {}) {
+  if (!bounds || !workArea) return null;
+  return clampBounds({
+    ...bounds,
+    x: Number(bounds.x) + Number(delta.dx || 0),
+    y: Number(bounds.y) + Number(delta.dy || 0)
+  }, workArea, FLOATING_BUBBLE_COLLAPSED_MARGIN);
+}
+
+module.exports = {
+  FLOATING_BUBBLE_HANDLE_HEIGHT,
+  FLOATING_BUBBLE_HANDLE_WIDTH,
+  FLOATING_BUBBLE_MARGIN,
+  canUseFloatingBubble,
+  collapsedFloatingBubbleBounds,
+  expandedFloatingBubbleBounds,
+  floatingBubbleCollapsePlan,
+  floatingBubbleNativeGlassEnabled,
+  floatingBubbleSide,
+  moveFloatingBubbleBounds
+};

@@ -40,6 +40,13 @@ contextBridge.exposeInMainWorld('tokenMonitor', {
   getAppUpdateState: () => ipcRenderer.invoke('appUpdate:getState'),
   checkAppUpdateNow: () => ipcRenderer.invoke('appUpdate:checkNow'),
   dismissAppUpdate: (version) => ipcRenderer.invoke('appUpdate:dismiss', version),
+  expandFloatingBubble: () => ipcRenderer.invoke('floatingBubble:expand'),
+  moveFloatingBubble: (delta) => ipcRenderer.invoke('floatingBubble:move', delta),
+  onFloatingBubbleState: (callback) => {
+    const listener = (_event, payload) => { try { callback(payload); } catch (_) {} };
+    ipcRenderer.on('floatingBubble:state', listener);
+    return () => ipcRenderer.removeListener('floatingBubble:state', listener);
+  },
   onAppUpdatePush: (callback) => {
     const listener = (_event, payload) => { try { callback(payload); } catch (_) {} };
     ipcRenderer.on('appUpdate:push', listener);

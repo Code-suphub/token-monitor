@@ -146,6 +146,8 @@
             </select>
           </label>
           <p class="settings-note" data-i18n="settings.display.windowBehaviorNote">Desktop pinned keeps the widget below other apps and locks drag/resize while staying clickable.</p>
+          <label class="checkbox-label"><input id="floatingBubbleInput" type="checkbox" /><span data-i18n="settings.display.floatingBubble">Floating Bubble</span></label>
+          <p class="settings-note" data-i18n="settings.display.floatingBubbleNote">Collapse the widget into a slim draggable mini-window; click it to reopen.</p>
           <label class="checkbox-label"><input id="trayModeInput" type="checkbox" /><span data-i18n="settings.display.trayMode">Tray Mode</span></label>
           <p class="settings-note" data-i18n="settings.display.trayNote">Hide the floating window; show a popover from the macOS menu bar or Windows system tray.</p>
           <label><span data-i18n="settings.display.trayText">Tray text</span>
@@ -238,6 +240,9 @@
         <button id="refreshButton" class="refresh-button" title="Refresh">↻</button>
       </footer>
     </main>
+    <button id="floatingBubbleTab" class="floating-bubble-tab" type="button" title="Show Token Monitor" aria-label="Show Token Monitor" data-i18n-title="floatingBubble.expand" data-i18n-aria-label="floatingBubble.expand">
+      <span aria-hidden="true">Σ</span>
+    </button>
     <script src="trayBars.js"></script>
     <script src="trayProviderIcons.js"></script>
     <script src="limitProviderOrder.js"></script>

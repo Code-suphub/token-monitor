@@ -23,6 +23,16 @@ const { aggregateDevices } = require('../shared/usage');
 const { startDiscordRpc, stopDiscordRpc, updateDiscordRpc } = require('./discordRpc');
 const { buildTrayIcon, createTray, formatTrayText, pickUsageTrayIconId, popoverBounds } = require('./tray');
 const { describeWindowBehavior, normalizeWindowBehaviorSettings } = require('./windowBehavior');
+const {
+  FLOATING_BUBBLE_HANDLE_HEIGHT,
+  FLOATING_BUBBLE_HANDLE_WIDTH,
+  canUseFloatingBubble,
+  expandedFloatingBubbleBounds,
+  floatingBubbleCollapsePlan,
+  floatingBubbleNativeGlassEnabled,
+  floatingBubbleSide,
+  moveFloatingBubbleBounds
+} = require('./floatingBubble');
 
 if (!app.isPackaged) loadDotEnv();
 
@@ -81,6 +91,8 @@ function defaultSettings() {
     showLiveDot: true,
     showToolIcons: true,
     titleIconOnly: false,
+    floatingBubbleEnabled: false,
+    floatingBubbleBounds: null,
     discordRpcEnabled: false,
     deviceId: process.env.TOKEN_MONITOR_DEVICE_ID || defaultDeviceId(),
     lastPostedDeviceId: '',
@@ -180,9 +192,157 @@ function restoredBounds() {
 }
 
 let persistBoundsTimer = null;
+let floatingBubbleAutoCollapseTimer = null;
+const floatingBubbleState = { collapsed: false, side: null, collapsedBounds: null, expandedBounds: null, suppressNextCollapse: false };
+
 function stopPersistBoundsTimer() {
   if (persistBoundsTimer) clearTimeout(persistBoundsTimer);
   persistBoundsTimer = null;
+}
+
+function floatingBubblePayload() {
+  return {
+    enabled: canUseFloatingBubble(settings),
+    collapsed: floatingBubbleState.collapsed,
+    side: floatingBubbleState.side
+  };
+}
+
+function sendFloatingBubbleState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  try { mainWindow.webContents.send('floatingBubble:state', floatingBubblePayload()); } catch (_) {}
+}
+
+function stopFloatingBubbleAutoCollapseTimer() {
+  if (floatingBubbleAutoCollapseTimer) clearTimeout(floatingBubbleAutoCollapseTimer);
+  floatingBubbleAutoCollapseTimer = null;
+}
+
+function restoreWindowSizeLimits() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (typeof mainWindow.setMinimumSize === 'function') {
+    mainWindow.setMinimumSize(WINDOW_LIMITS.minWidth, WINDOW_LIMITS.minHeight);
+  }
+  if (typeof mainWindow.setMaximumSize === 'function') {
+    mainWindow.setMaximumSize(WINDOW_LIMITS.maxWidth, WINDOW_LIMITS.maxHeight);
+  }
+}
+
+function applyCollapsedFloatingBubbleLimits(bounds) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (typeof mainWindow.setMinimumSize === 'function') {
+    mainWindow.setMinimumSize(bounds?.width || FLOATING_BUBBLE_HANDLE_WIDTH, bounds?.height || FLOATING_BUBBLE_HANDLE_HEIGHT);
+  }
+  if (typeof mainWindow.setResizable === 'function') mainWindow.setResizable(false);
+}
+
+function displayForBounds(bounds) {
+  if (!bounds || typeof bounds.x !== 'number' || typeof bounds.y !== 'number') return null;
+  try {
+    return screen.getDisplayMatching({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width || 1,
+      height: bounds.height || 1
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+function persistWindowBounds(next) {
+  const prev = settings.windowBounds || {};
+  if (prev.x === next.x && prev.y === next.y && prev.width === next.width && prev.height === next.height) return false;
+  settings.windowBounds = next;
+  saveSettings();
+  return true;
+}
+
+function collapseFloatingBubble(plan) {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  stopFloatingBubbleAutoCollapseTimer();
+  const { side, expandedBounds, collapsedBounds } = plan || {};
+  if (!expandedBounds || !collapsedBounds) return false;
+  floatingBubbleState.collapsed = true;
+  floatingBubbleState.side = side;
+  floatingBubbleState.collapsedBounds = collapsedBounds;
+  floatingBubbleState.expandedBounds = expandedBounds;
+  settings.floatingBubbleBounds = collapsedBounds;
+  applyNativeMaterial();
+  applyCollapsedFloatingBubbleLimits(collapsedBounds);
+  mainWindow.setBounds(collapsedBounds);
+  persistWindowBounds(expandedBounds);
+  sendFloatingBubbleState();
+  return true;
+}
+
+function maybeCollapseFloatingBubble(bounds) {
+  const display = displayForBounds(bounds);
+  if (!display) return false;
+  const plan = floatingBubbleCollapsePlan(bounds, display.workArea, settings, {
+    collapsed: floatingBubbleState.collapsed,
+    suppressNextCollapse: floatingBubbleState.suppressNextCollapse,
+    collapsedBounds: settings?.floatingBubbleBounds || floatingBubbleState.collapsedBounds
+  });
+  floatingBubbleState.suppressNextCollapse = false;
+  if (!plan) return false;
+  return collapseFloatingBubble(plan);
+}
+
+function expandFloatingBubble(options = {}) {
+  if (!mainWindow || mainWindow.isDestroyed() || !floatingBubbleState.collapsed) return false;
+  stopFloatingBubbleAutoCollapseTimer();
+  const current = mainWindow.getBounds();
+  const display = displayForBounds(floatingBubbleState.expandedBounds || current) || displayForBounds(current);
+  const target = display
+    ? expandedFloatingBubbleBounds(current, display.workArea, floatingBubbleState.expandedBounds)
+    : floatingBubbleState.expandedBounds;
+  floatingBubbleState.collapsed = false;
+  floatingBubbleState.side = null;
+  floatingBubbleState.collapsedBounds = current;
+  floatingBubbleState.expandedBounds = target;
+  applyNativeMaterial();
+  if (target) {
+    floatingBubbleState.suppressNextCollapse = true;
+    restoreWindowSizeLimits();
+    mainWindow.setBounds(target);
+    persistWindowBounds(target);
+    setTimeout(() => { floatingBubbleState.suppressNextCollapse = false; }, 300);
+  }
+  applyWindowSettings();
+  sendFloatingBubbleState();
+  if (options.focus !== false) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
+  return true;
+}
+
+function scheduleFloatingBubbleAutoCollapse() {
+  stopFloatingBubbleAutoCollapseTimer();
+  if (!canUseFloatingBubble(settings) || floatingBubbleState.collapsed) return;
+  floatingBubbleAutoCollapseTimer = setTimeout(() => {
+    floatingBubbleAutoCollapseTimer = null;
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isFocused()) return;
+    maybeCollapseFloatingBubble(mainWindow.getBounds());
+  }, 180);
+}
+
+function syncFloatingBubbleAvailability() {
+  if (!canUseFloatingBubble(settings)) {
+    if (floatingBubbleState.collapsed) expandFloatingBubble({ focus: false });
+    else {
+      floatingBubbleState.side = null;
+      floatingBubbleState.collapsedBounds = null;
+      floatingBubbleState.expandedBounds = null;
+      floatingBubbleState.suppressNextCollapse = false;
+      stopFloatingBubbleAutoCollapseTimer();
+      restoreWindowSizeLimits();
+    }
+    sendFloatingBubbleState();
+    return;
+  }
+  sendFloatingBubbleState();
 }
 
 function persistBoundsSoon() {
@@ -198,6 +358,20 @@ function persistBoundsSoon() {
       // Popover x/y is anchored to the tray icon each open; only the size carries over.
       if (prev.width === next.width && prev.height === next.height) return;
       settings.windowBounds = { ...prev, width: next.width, height: next.height };
+    } else if (floatingBubbleState.collapsed && floatingBubbleState.expandedBounds) {
+      floatingBubbleState.collapsedBounds = next;
+      const display = displayForBounds(next);
+      const nextSide = display ? floatingBubbleSide(next, display.workArea) : floatingBubbleState.side;
+      if (nextSide !== floatingBubbleState.side) {
+        floatingBubbleState.side = nextSide;
+        sendFloatingBubbleState();
+      }
+      const previousBubble = settings.floatingBubbleBounds || {};
+      if (previousBubble.x === next.x &&
+        previousBubble.y === next.y &&
+        previousBubble.width === next.width &&
+        previousBubble.height === next.height) return;
+      settings.floatingBubbleBounds = next;
     } else {
       if (prev.x === next.x && prev.y === next.y && prev.width === next.width && prev.height === next.height) return;
       settings.windowBounds = next;
@@ -248,6 +422,8 @@ function readSettings() {
     merged.currency = normalizeCurrency(merged.currency);
     merged.hubHostPort = normalizeHubPort(merged.hubHostPort);
     merged.hubHostSecret = typeof merged.hubHostSecret === 'string' ? merged.hubHostSecret : '';
+    merged.floatingBubbleEnabled = parseBoolean(merged.floatingBubbleEnabled ?? merged.edgeDrawerEnabled, false);
+    delete merged.edgeDrawerEnabled;
     return normalizeWindowBehaviorSettings(merged);
   }
   catch (_error) { return normalizeWindowBehaviorSettings(defaultSettings()); }
@@ -307,7 +483,7 @@ function applyWindowSettings() {
 }
 
 function nativeBlurEnabled(source = settings) {
-  return source?.systemGlass !== false;
+  return floatingBubbleNativeGlassEnabled(source, floatingBubbleState);
 }
 
 function keepNativeBlurActive() {
@@ -682,6 +858,7 @@ function focusExistingWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
   if (settings?.trayMode) showPopover();
+  else if (floatingBubbleState.collapsed) expandFloatingBubble();
   else {
     mainWindow.show();
     mainWindow.focus();
@@ -1029,10 +1206,14 @@ function createWindow(boundsOverride) {
   applyWindowSettings();
   applyNativeMaterial();
   keepNativeBlurActive();
-  win.on('focus', keepNativeBlurActive);
+  win.on('focus', () => {
+    stopFloatingBubbleAutoCollapseTimer();
+    keepNativeBlurActive();
+  });
   win.on('blur', () => {
     keepNativeBlurActive();
     if (settings?.trayMode && !suppressNextBlurHide && !quitRequested) hidePopover();
+    else if (!quitRequested) scheduleFloatingBubbleAutoCollapse();
   });
   win.on('resized', persistBoundsSoon);
   win.on('moved', persistBoundsSoon);
@@ -1043,13 +1224,19 @@ function createWindow(boundsOverride) {
     }
   });
   win.webContents.on('before-input-event', handleZoomShortcut);
+  win.webContents.once('did-finish-load', sendFloatingBubbleState);
   loadWindowFile(win);
 }
 
 function handleZoomShortcut(event, input) {
   if (input.type !== 'keyDown') return;
-  if (!(input.control || input.meta)) return;
   const key = input.key;
+  if (key === 'Escape' && !input.control && !input.meta && !input.alt && !input.shift && canUseFloatingBubble(settings)) {
+    event.preventDefault();
+    maybeCollapseFloatingBubble(mainWindow.getBounds());
+    return;
+  }
+  if (!(input.control || input.meta)) return;
   if (key === '=' || key === '+') { event.preventDefault(); adjustZoom(ZOOM_LIMITS.step); }
   else if (key === '-' || key === '_') { event.preventDefault(); adjustZoom(-ZOOM_LIMITS.step); }
   else if (key === '0') { event.preventDefault(); setZoomFactor(1); }
@@ -1072,9 +1259,17 @@ function normalizeManualCookie(input) {
 
 function rebuildWindow() {
   if (!mainWindow) return;
-  const bounds = mainWindow.getBounds();
+  const bounds = floatingBubbleState.collapsed && floatingBubbleState.expandedBounds
+    ? floatingBubbleState.expandedBounds
+    : mainWindow.getBounds();
   const wasFocused = mainWindow.isFocused();
   const old = mainWindow;
+  floatingBubbleState.collapsed = false;
+  floatingBubbleState.side = null;
+  floatingBubbleState.collapsedBounds = null;
+  floatingBubbleState.expandedBounds = null;
+  floatingBubbleState.suppressNextCollapse = false;
+  stopFloatingBubbleAutoCollapseTimer();
   old.removeAllListeners('close');
   // Build the new window first so total window count never drops to 0
   // (otherwise window-all-closed fires and quits the app on Windows).
@@ -1138,6 +1333,7 @@ app.whenReady().then(() => {
       showLiveDot: patch.showLiveDot ?? settings.showLiveDot ?? true,
       showToolIcons: patch.showToolIcons ?? settings.showToolIcons ?? true,
       titleIconOnly: parseBoolean(patch.titleIconOnly ?? settings.titleIconOnly, false),
+      floatingBubbleEnabled: parseBoolean(patch.floatingBubbleEnabled ?? settings.floatingBubbleEnabled, false),
       discordRpcEnabled: patch.discordRpcEnabled ?? settings.discordRpcEnabled ?? false,
       limitsEnabled: parseBoolean(patch.limitsEnabled ?? settings.limitsEnabled, true),
       limitProviders: patch.limitProviders !== undefined ? parseLimitProviders(patch.limitProviders).join(',') : settings.limitProviders,
@@ -1151,6 +1347,7 @@ app.whenReady().then(() => {
       language: patch.language !== undefined ? normalizeLanguageSetting(patch.language, settings.language) : normalizeLanguageSetting(settings.language),
       startAtLogin: loginItemEnabledHere() ? parseBoolean(patch.startAtLogin ?? settings.startAtLogin, false) : false
     }, normalizedPatch);
+    delete settings.edgeDrawerEnabled;
     saveSettings();
     if (settings.startAtLogin !== previousStartAtLogin) {
       settings.startAtLogin = applyLoginItem(settings.startAtLogin);
@@ -1164,6 +1361,7 @@ app.whenReady().then(() => {
     else if (!settings.discordRpcEnabled && previousDiscordRpcEnabled) stopDiscordRpc();
     else if (settings.discordRpcEnabled && settings.currency !== previousCurrency && latestStats) updateDiscordRpc(latestStats, settings.currency);
     applyWindowSettings();
+    syncFloatingBubbleAvailability();
     if (process.platform === 'win32' && previousSystemGlass !== settings.systemGlass) {
       rebuildWindow();
     } else {
@@ -1196,6 +1394,22 @@ app.whenReady().then(() => {
     if (patch && patch.zoomFactor !== undefined && mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.setZoomFactor(clampZoom(patch.zoomFactor));
     }
+    return true;
+  });
+  ipcMain.handle('floatingBubble:expand', () => expandFloatingBubble());
+  ipcMain.handle('floatingBubble:move', (_event, delta) => {
+    if (!mainWindow || mainWindow.isDestroyed() || !floatingBubbleState.collapsed) return false;
+    const current = mainWindow.getBounds();
+    const display = displayForBounds(current);
+    if (!display) return false;
+    const target = moveFloatingBubbleBounds(current, display.workArea, delta);
+    if (!target) return false;
+    floatingBubbleState.collapsedBounds = target;
+    floatingBubbleState.side = floatingBubbleSide(target, display.workArea);
+    settings.floatingBubbleBounds = target;
+    mainWindow.setBounds(target);
+    saveSettings();
+    sendFloatingBubbleState();
     return true;
   });
   ipcMain.handle('tray:setIcons', (_event, icons) => {

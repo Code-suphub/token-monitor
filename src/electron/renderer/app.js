@@ -77,6 +77,7 @@ const limitProviderOrderApi = window.TokenMonitorLimitProviderOrder;
 const i18n = window.TokenMonitorI18n;
 const currencyApi = window.TokenMonitorCurrency;
 const sessionRowsApi = window.TokenMonitorSessionRows;
+const sessionDetailApi = window.TokenMonitorSessionDetail;
 const LIMIT_REFRESH_OPTIONS = [60000, 120000, 300000, 900000, 1800000];
 const WINDOW_BEHAVIOR_VALUES = ['floating', 'normal', 'desktop'];
 const WINDOW_BEHAVIOR_ICONS = { floating: '⇧', normal: '○', desktop: '⇩' };
@@ -86,7 +87,7 @@ const deviceStaleColor = '#8c97a7';
 const fallbackModelColors = ['#6ab4f0', '#cc7c5e', '#a57df0', '#49a3b0', '#f0d66a', '#f06a7b'];
 const baseBreakdownOrder = ['tool', 'device', 'model', 'session'];
 const initialFloatingBubble = window.__TOKEN_MONITOR_INITIAL_FLOATING_BUBBLE__ || { collapsed: false, side: null };
-const state = { period: 'today', appUpdate: null, breakdown: 'tool', settings: null, stats: null, refreshTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true };
+const state = { period: 'today', appUpdate: null, breakdown: 'tool', settings: null, stats: null, refreshTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time' };
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, showLiveDot: true, showToolIcons: true, titleIconOnly: false };
 const els = {
   shell: document.querySelector('.shell'), status: document.getElementById('status'), liveDot: document.getElementById('liveDot'), totalTokens: document.getElementById('totalTokens'), cost: document.getElementById('cost'), breakdown: document.getElementById('breakdown'), limitsPanel: document.getElementById('limitsPanel'), breakdownToggle: document.getElementById('breakdownToggle'), pinButton: document.getElementById('pinButton'), settingsButton: document.getElementById('settingsButton'), settingsPanel: document.getElementById('settingsPanel'), languageInput: document.getElementById('languageInput'), currencyInput: document.getElementById('currencyInput'), hubUrlInput: document.getElementById('hubUrlInput'), secretInput: document.getElementById('secretInput'), deviceIdInput: document.getElementById('deviceIdInput'), limitProviderCheckboxes: document.getElementById('limitProviderCheckboxes'), limitsRefreshInput: document.getElementById('limitsRefreshInput'), showLimitSourceInput: document.getElementById('showLimitSourceInput'), systemGlassInput: document.getElementById('systemGlassInput'), liveDotInput: document.getElementById('liveDotInput'), toolIconsInput: document.getElementById('toolIconsInput'), floatingBubbleInput: document.getElementById('floatingBubbleInput'), floatingBubbleTriggerInput: document.getElementById('floatingBubbleTriggerInput'), floatingBubbleTriggerRow: document.getElementById('floatingBubbleTriggerRow'), floatingBubbleContentInput: document.getElementById('floatingBubbleContentInput'), floatingBubbleContentRow: document.getElementById('floatingBubbleContentRow'), floatingBubbleContent: document.getElementById('floatingBubbleContent'), discordRpcInput: document.getElementById('discordRpcInput'), windowBehaviorInput: document.getElementById('windowBehaviorInput'), trayModeInput: document.getElementById('trayModeInput'), trayContentInput: document.getElementById('trayContentInput'), glassInput: document.getElementById('glassInput'), blurInput: document.getElementById('blurInput'), zoomInput: document.getElementById('zoomInput'), resetGlassButton: document.getElementById('resetGlassButton'), resetDepthButton: document.getElementById('resetDepthButton'), resetZoomButton: document.getElementById('resetZoomButton'), saveSettingsButton: document.getElementById('saveSettingsButton'), clientCheckboxes: document.getElementById('clientCheckboxes'), openConfigButton: document.getElementById('openConfigButton'), refreshButton: document.getElementById('refreshButton'), minButton: document.getElementById('minButton'), closeButton: document.getElementById('closeButton'), floatingBubbleTab: document.getElementById('floatingBubbleTab')
@@ -123,7 +124,9 @@ Object.assign(els, {
   appUpdateCheckButton: document.getElementById('appUpdateCheckButton'),
   appUpdateViewReleaseButton: document.getElementById('appUpdateViewReleaseButton'),
   appUpdateMessage: document.getElementById('appUpdateMessage'),
-  titleIconInput: document.getElementById('titleIconInput')
+  titleIconInput: document.getElementById('titleIconInput'),
+  sessionDetail: document.getElementById('session-detail'),
+  sessionDetailHead: document.getElementById('session-detail-head')
 });
 
 function preferredLanguages() {
@@ -762,6 +765,123 @@ function breakdownLabel(deviceText) {
   return 'Tools';
 }
 
+async function openSessionDetail({ client, sessionId, sessionCost, title }) {
+  state.openSession = { client, sessionId, sessionCost, title, detail: null };
+  renderSessionDetail({ loading: true });
+  try {
+    const detail = await window.tokenMonitor.getSessionDetail({ client, sessionId, period: state.period, sessionCost });
+    if (state.openSession && state.openSession.sessionId === sessionId) {
+      state.openSession.detail = detail;
+      renderSessionDetail({ detail });
+    }
+  } catch (_) {
+    if (state.openSession && state.openSession.sessionId === sessionId) renderSessionDetail({ error: true });
+  }
+}
+
+function toggleDetailSort() {
+  state.detailSort = state.detailSort === 'tokens' ? 'time' : 'tokens';
+  if (state.openSession && state.openSession.detail) renderSessionDetail({ detail: state.openSession.detail });
+}
+
+function closeSessionDetail() {
+  state.openSession = null;
+  els.sessionDetail.classList.add('hidden');
+  els.sessionDetail.replaceChildren();
+  els.sessionDetailHead.classList.add('hidden');
+  els.sessionDetailHead.replaceChildren();
+  render();
+}
+
+function renderSessionDetail({ detail, loading, error } = {}) {
+  els.breakdown.classList.add('hidden');
+  els.sessionDetail.classList.remove('hidden');
+  els.sessionDetailHead.classList.remove('hidden');
+  const head = els.sessionDetailHead;       // static layer — rows scroll independently below it
+  const container = els.sessionDetail;
+  head.replaceChildren();
+  container.replaceChildren();
+
+  const back = document.createElement('button');
+  back.className = 'detail-back';
+  back.textContent = `‹ ${t('sessions') || 'Sessions'}`;
+  back.addEventListener('click', closeSessionDetail);
+  head.append(back);
+
+  if (loading) { container.append(detailNote(t('detailLoading') || 'Loading…')); return; }
+  if (error || (detail && detail.found === false)) { container.append(detailNote(t('detailNotFound') || 'Transcript not found on this machine.')); return; }
+
+  const rows = sessionDetailApi.exchangeRows(detail, { now: new Date(), sortBy: state.detailSort });
+  if (rows.length === 0) { container.append(detailNote(t('detailEmpty') || 'No activity in this period.')); return; }
+
+  const sort = document.createElement('button');
+  sort.className = 'detail-sort';
+  sort.textContent = state.detailSort === 'tokens' ? (t('sortMostTokens') || '↕ Most tokens') : (t('sortNewest') || '↕ Newest');
+  sort.addEventListener('click', toggleDetailSort);
+  head.append(sort);
+
+  const max = Math.max(1, ...rows.map((row) => row.value));
+  for (const row of rows) container.append(exchangeNode(row, max));
+}
+
+function detailNote(text) {
+  const note = document.createElement('div');
+  note.className = 'detail-note';
+  note.textContent = text;
+  return note;
+}
+
+function exchangeNode(row, max) {
+  const wrap = document.createElement('div');
+  wrap.className = 'detail-exchange';
+  wrap.innerHTML = '<div class="detail-ex-head"><span class="detail-chev">▸</span>'
+    + '<div class="detail-ex-label"><span class="detail-ex-title"></span><span class="detail-ex-sub"></span></div>'
+    + '<div class="detail-ex-metrics"><span class="detail-ex-value"></span><span class="detail-ex-cost"></span></div></div>'
+    + '<div class="bar"><div class="bar-fill"></div></div>'
+    + '<div class="detail-turns hidden"></div>';
+  const exTitle = wrap.querySelector('.detail-ex-title');
+  if (row.isPrompt) {
+    const role = document.createElement('span');
+    role.className = 'detail-role-user';
+    role.textContent = t('roleYou') || 'You';
+    const sep = document.createElement('span');
+    sep.className = 'detail-role-sep';
+    sep.textContent = ' › ';
+    exTitle.append(role, sep);
+  }
+  exTitle.append(document.createTextNode(row.title));
+  wrap.querySelector('.detail-ex-sub').textContent = row.subtitle;
+  wrap.querySelector('.detail-ex-value').textContent = formatNumber(row.value);
+  wrap.querySelector('.detail-ex-cost').textContent = formatCost(row.cost);
+  wrap.querySelector('.bar-fill').style.width = `${rowWidth(row.value, max)}%`;
+
+  const turnsEl = wrap.querySelector('.detail-turns');
+  for (const turn of row.turns) turnsEl.append(turnNode(turn));
+
+  const head = wrap.querySelector('.detail-ex-head');
+  head.addEventListener('click', () => {
+    const collapsed = turnsEl.classList.toggle('hidden');
+    wrap.querySelector('.detail-chev').textContent = collapsed ? '▸' : '▾';
+  });
+  return wrap;
+}
+
+function turnNode(turn) {
+  const el = document.createElement('div');
+  el.className = 'detail-turn';
+  const tk = turn.tokens || {};
+  const split = `in ${formatNumber(tk.input || 0)} · out ${formatNumber(tk.output || 0)} · cache ${formatNumber(tk.cacheRead || 0)}`
+    + (tk.reasoning ? ` · reason ${formatNumber(tk.reasoning)}` : '');
+  el.innerHTML = '<div class="detail-turn-label"><span class="detail-turn-title"></span><span class="detail-turn-split"></span><span class="detail-turn-tools"></span></div>'
+    + '<div class="detail-turn-metrics"><span class="detail-turn-value"></span><span class="detail-turn-cost"></span></div>';
+  el.querySelector('.detail-turn-title').textContent = `AI ${turn.label}`;
+  el.querySelector('.detail-turn-split').textContent = split;
+  el.querySelector('.detail-turn-tools').textContent = turn.tools ? `⊢ ${turn.tools}` : '';
+  el.querySelector('.detail-turn-value').textContent = formatNumber(turn.value);
+  el.querySelector('.detail-turn-cost').textContent = formatCost(turn.cost);
+  return el;
+}
+
 let contentReadySignaled = false;
 
 function render() {
@@ -770,6 +890,8 @@ function render() {
     state.breakdown = 'tool';
     state.rowSignature = '';
   }
+  if (state.openSession && state.breakdown !== 'session') { state.openSession = null; els.sessionDetail.classList.add('hidden'); els.sessionDetail.replaceChildren(); els.sessionDetailHead.classList.add('hidden'); els.sessionDetailHead.replaceChildren(); }
+  if (state.openSession) { els.sessionDetail.classList.remove('hidden'); els.sessionDetailHead.classList.remove('hidden'); } else { els.sessionDetail.classList.add('hidden'); els.sessionDetailHead.classList.add('hidden'); }
   const period = state.stats.periods?.[state.period] || { totalTokens: 0, costUsd: 0, clients: {} };
   const nextTotal = Number(period.totalTokens || 0);
   if (state.suppressInitialNumberAnimation) {
@@ -791,6 +913,11 @@ function render() {
     els.breakdown.classList.add('hidden');
     els.limitsPanel.classList.remove('hidden');
     renderLimits();
+  } else if (state.openSession) {
+    // session-detail view replaces the breakdown list; keep both the list and
+    // limits hidden so a periodic re-render doesn't surface them over the detail.
+    els.limitsPanel.classList.add('hidden');
+    els.breakdown.classList.add('hidden');
   } else {
     els.limitsPanel.classList.add('hidden');
     els.breakdown.classList.remove('hidden');
@@ -1402,11 +1529,32 @@ for (const tab of document.querySelectorAll('.tab')) {
     document.querySelector('.tab.active')?.classList.remove('active');
     tab.classList.add('active');
     state.period = tab.dataset.period;
+    if (state.openSession) openSessionDetail(state.openSession);
     state.currentTotal = 0;
     state.rowSignature = '';
     render();
   });
 }
+
+els.breakdown.addEventListener('click', (event) => {
+  if (state.breakdown !== 'session') return;
+  const rowEl = event.target.closest('.row');
+  if (!rowEl) return;
+  const key = rowEl.dataset.key || '';            // "session:<client>:<sessionId>"
+  const client = rowEl.dataset.client || '';
+  if (client !== 'claude' && client !== 'codex') return;
+  const match = key.match(/^session:([^:]+):(.+)$/);
+  if (!match) return;
+  const sessionId = match[2];
+  const period = state.stats?.periods?.[state.period];
+  const session = period?.sessions?.[`${client}:${sessionId}`];
+  openSessionDetail({
+    client,
+    sessionId,
+    sessionCost: Number(session?.costUsd || 0),
+    title: rowEl.querySelector('.row-title')?.textContent || ''
+  });
+});
 
 els.pinButton.addEventListener('click', () => {
   saveSettings({ windowBehavior: nextWindowBehavior(currentWindowBehavior()) });

@@ -167,7 +167,13 @@
       'settings.advanced.title': 'Advanced',
       'settings.advanced.note': 'Additional options are available in',
       'settings.advanced.openConfig': 'Open Config',
-      'floatingBubble.expand': 'Show Token Monitor'
+      'floatingBubble.expand': 'Show Token Monitor',
+      'detailLoading': 'Loading…',
+      'detailNotFound': 'Transcript not found on this machine.',
+      'detailEmpty': 'No activity in this period.',
+      'roleYou': 'You',
+      'sortNewest': '↕ Newest',
+      'sortMostTokens': '↕ Most tokens'
     },
     'zh-TW': {
       'settings.language.title': '語言',
@@ -323,7 +329,13 @@
       'settings.advanced.title': '進階',
       'settings.advanced.note': '其他選項可在這裡調整：',
       'settings.advanced.openConfig': '開啟設定檔',
-      'floatingBubble.expand': '顯示 Token Monitor'
+      'floatingBubble.expand': '顯示 Token Monitor',
+      'detailLoading': '載入中…',
+      'detailNotFound': '在這台機器上找不到對話紀錄。',
+      'detailEmpty': '這段期間沒有活動。',
+      'roleYou': '你',
+      'sortNewest': '↕ 最新',
+      'sortMostTokens': '↕ Token 最多'
     },
     'zh-CN': {
       'settings.language.title': '语言',
@@ -479,7 +491,13 @@
       'settings.advanced.title': '高级',
       'settings.advanced.note': '其他选项可在这里调整：',
       'settings.advanced.openConfig': '打开配置',
-      'floatingBubble.expand': '显示 Token Monitor'
+      'floatingBubble.expand': '显示 Token Monitor',
+      'detailLoading': '加载中…',
+      'detailNotFound': '在这台机器上找不到对话记录。',
+      'detailEmpty': '这段时间没有活动。',
+      'roleYou': '你',
+      'sortNewest': '↕ 最新',
+      'sortMostTokens': '↕ Token 最多'
     }
   };
 

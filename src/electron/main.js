@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { app, BrowserWindow, ipcMain, nativeImage, screen, session, shell } = require('electron');
 const { defaultDeviceId, generateHubSecret, lanIpv4Addresses, loadDotEnv, pidFilePath, sharedDataDir } = require('../shared/config');
@@ -28,6 +29,7 @@ const {
   pruneArchivedClientUsage
 } = require('../shared/clientUsageArchive');
 const { aggregateDevices } = require('../shared/usage');
+const { readSessionDetail } = require('../shared/sessionDetail');
 const { startDiscordRpc, stopDiscordRpc, updateDiscordRpc } = require('./discordRpc');
 const { buildTrayIcon, createTray, formatTrayText, pickUsageTrayIconId, popoverBounds } = require('./tray');
 const { describeWindowBehavior, normalizeWindowBehaviorSettings } = require('./windowBehavior');
@@ -1671,6 +1673,10 @@ app.whenReady().then(() => {
     return true;
   });
   ipcMain.handle('stats:get', (_event, options) => fetchStats(options));
+  ipcMain.handle('session:getDetail', (_event, args) => {
+    const { client, sessionId, period, sessionCost } = args || {};
+    return readSessionDetail({ client, sessionId, period, sessionCost, home: os.homedir() });
+  });
   ipcMain.handle('stream:status', () => ({ connected: streamConnected, mode }));
   ipcMain.handle('hub:getInfo', () => getHubInfo());
   ipcMain.handle('hub:regenerateSecret', () => {

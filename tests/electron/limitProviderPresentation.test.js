@@ -31,7 +31,7 @@ test('capability tags explain how each provider is collected in settings', () =>
   assert.deepEqual(limitProviderCapabilityTags('codex'), ['Auto', 'CLI RPC']);
   assert.deepEqual(limitProviderCapabilityTags('cursor'), ['Manual login', 'Web']);
   assert.deepEqual(limitProviderCapabilityTags('antigravity'), ['App must be open', 'RPC']);
-  assert.deepEqual(limitProviderCapabilityTags('opencode'), ['Local/Zen', 'Manual login']);
+  assert.deepEqual(limitProviderCapabilityTags('opencode'), ['Local/Web', 'Manual login']);
   assert.deepEqual(limitProviderCapabilityTags('unknown'), []);
 });
 
@@ -62,7 +62,7 @@ test('detected settings tags show only current source after status', () => {
   assert.deepEqual(
     limitProviderSettingsTags({ provider: 'opencode', status: 'ok', source: 'web' })
       .map((tag) => tag.label),
-    ['Linked', 'Zen']
+    ['Linked', 'Web']
   );
 });
 
@@ -134,7 +134,7 @@ test('single local synced provider tags identify local provenance without main p
 
   assert.deepEqual(
     limitProviderSettingsTags(provider, provenance).map((tag) => tag.key || tag.label),
-    ['Linked', 'Zen', 'settings.limits.device.local']
+    ['Linked', 'Web', 'settings.limits.device.local']
   );
   assert.equal(limitProviderMainDeviceLabel(provenance), '');
 });

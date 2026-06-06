@@ -832,15 +832,13 @@ function renderLimits() {
         node.classList.add('limit-window-wide');
         windows.append(node);
       }
-      // A signed-in Zen account (source 'web') always gets a Balance line — `$X.XX` when funded,
-      // `—` until then — so the card never collapses to an empty window area. `source` survives hub
-      // aggregation, unlike `accountLabel` which `publicLimits` strips. Go (source 'local') has no
-      // balance concept and is covered by its session/weekly windows above.
+      // Balance is a Zen-only concept. Show it only when a real balance number came
+      // back (incl. $0.00). It can't key off `source === 'web'` anymore — Go usage is
+      // now fetched over the web too, so a pure-Go account (no Zen, balanceUsd null)
+      // must not get a phantom `Balance —` line.
       const hasBalance = typeof provider.balanceUsd === 'number' && Number.isFinite(provider.balanceUsd);
-      const zenLinked = provider.status === 'ok' && provider.source === 'web';
-      if (hasBalance || zenLinked) {
-        const balanceText = hasBalance ? formatLimitAmount(provider.balanceUsd) : '—';
-        const node = limitWindowNode('Balance', { showMeter: false }, color, 0.68, balanceText);
+      if (hasBalance) {
+        const node = limitWindowNode('Balance', { showMeter: false }, color, 0.68, formatLimitAmount(provider.balanceUsd));
         node.classList.add('limit-window-wide');
         windows.append(node);
       }

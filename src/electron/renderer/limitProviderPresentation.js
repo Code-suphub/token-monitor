@@ -18,7 +18,7 @@
     codex: { rpc: 'CLI RPC' },
     cursor: { web: 'Web' },
     antigravity: { rpc: 'RPC' },
-    opencode: { local: 'Local', web: 'Zen' }
+    opencode: { local: 'Local', web: 'Web' }
   };
 
   const CAPABILITY_TAGS = {
@@ -26,7 +26,7 @@
     codex: ['Auto', 'CLI RPC'],
     cursor: ['Manual login', 'Web'],
     antigravity: ['App must be open', 'RPC'],
-    opencode: ['Local/Zen', 'Manual login']
+    opencode: ['Local/Web', 'Manual login']
   };
 
   function normalizeId(value) {

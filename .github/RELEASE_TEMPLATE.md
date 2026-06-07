@@ -4,19 +4,16 @@
 
 ## What's changed
 
-<!-- Replace this section for each release. Keep only categories that apply. -->
-
 ### Added
-- ...
-
-### Changed
-- ...
+- Added DeepSeek API balance as an AI Tool Limits provider, with local account setup, `.env` support, balance history, and a DeepSeek icon across the limits/status surfaces.
+- Expanded the experimental Status view with Cursor and DeepSeek service status, affected components, provider visibility/order controls, relative checked times, and configurable re-check intervals.
 
 ### Improved
-- ...
+- Refined the Status provider controls and settings icon so the service list is easier to scan and configure.
+- Codex limit sources now label CLI, app RPC, and Windows Store app paths more clearly.
 
 ### Fixed
-- ...
+- Fixed Windows Store Codex app detection; the Limits UI now correctly shows whether Codex limits came from the app or CLI.
 
 ## Which file should I download?
 
@@ -50,19 +47,16 @@ open-source: https://github.com/junhoyeo/tokscale
 
 ## 更新内容
 
-<!-- 每次发布版本时替换这段。只保留有用到的分类。 -->
-
 ### 新增
-- ...
-
-### 变更
-- ...
+- 新增 DeepSeek API 余额作为「AI 工具额度」来源，支持本机账号设置、`.env` 配置、余额历史记录，并在额度/状态界面显示 DeepSeek 图标。
+- 扩展实验性的「状态」视图：新增 Cursor 与 DeepSeek 服务状态、受影响组件、服务显示/排序设置、相对检查时间，以及可配置的自动重查间隔。
 
 ### 改进
-- ...
+- 优化「状态」视图的服务设置控件和设置图标，服务列表更容易浏览和调整。
+- Codex 额度来源现在能更清楚地区分 CLI、App RPC 与 Windows Store App 路径。
 
 ### 修复
-- ...
+- 修复 Windows Store 版 Codex App 的侦测；「额度」界面现在会正确显示 Codex 来源是 App 还是 CLI。
 
 ## 应该下载哪个文件？
 

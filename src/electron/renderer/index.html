@@ -312,6 +312,30 @@
                 <div id="opencodeErrorMessage" class="settings-note error hidden"></div>
               </div>
             </div>
+            <div id="deepseekAccountGroup" class="settings-group cursor-account-group">
+              <button id="deepseekSettingsToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="deepseekSettingsDetails">
+                <span data-i18n="settings.deepseek.title">DeepSeek Account</span>
+                <span class="cursor-settings-summary">
+                  <span id="deepseekApiKeyStatus" class="cursor-status-pill" data-i18n="settings.opencode.statusNotSet">Not configured</span>
+                  <span class="cursor-disclosure-icon" aria-hidden="true"></span>
+                </span>
+              </button>
+              <div id="deepseekSettingsDetails" class="cursor-settings-details hidden">
+                <div class="settings-actions">
+                  <button id="deepseekOpenBrowser" data-i18n="settings.deepseek.openBrowser">Open DeepSeek API keys</button>
+                  <button id="deepseekLogoutButton" class="hidden" data-i18n="settings.deepseek.clearApiKey">Clear key</button>
+                  <button id="deepseekRefreshButton" data-i18n="settings.common.refresh">Refresh</button>
+                </div>
+                <div id="deepseekManualPanel">
+                  <p class="settings-note" data-i18n="settings.deepseek.note">Paste a DeepSeek API key. It stays on this device and is used only for the balance API.</p>
+                  <input id="deepseekApiKeyInput" type="password" spellcheck="false" placeholder="sk-..." data-i18n-placeholder="settings.deepseek.apiKeyPlaceholder" />
+                  <div class="settings-actions">
+                    <button id="deepseekApiKeySubmit" data-i18n="settings.deepseek.saveApiKey">Save API key</button>
+                  </div>
+                </div>
+                <div id="deepseekErrorMessage" class="settings-note error hidden"></div>
+              </div>
+            </div>
           </div>
         </div>
 

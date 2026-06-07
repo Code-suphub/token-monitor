@@ -148,9 +148,10 @@ The hub normalizes records before storing them.
 
 `limits` is optional. Agents and widgets include it when AI Tool Limits detection is enabled. Raw OAuth credentials, access tokens, refresh tokens, emails, and provider response bodies must never be sent.
 
-`limits.providers[].provider` is one of `claude`, `codex`, `cursor`, `antigravity`, or `opencode`.
-`limits.providers[].source` is one of `oauth`, `cli`, `web`, `rpc`, or `local`; `local` means the value was read from an on-disk store such as OpenCode Go usage from `opencode.db`.
+`limits.providers[].provider` is one of `claude`, `codex`, `cursor`, `antigravity`, `opencode`, or `deepseek`.
+`limits.providers[].source` is one of `oauth`, `cli`, `web`, `rpc`, `local`, or `api`; `local` means the value was read from an on-disk store such as OpenCode Go usage from `opencode.db`, and `api` means a provider HTTP API authenticated by an API key (DeepSeek).
 `limits.providers[].balanceUsd` is an optional prepaid credit balance in USD (OpenCode Zen); `null` when the provider has no balance concept or none could be read. A genuine `0` (no remaining credit) is distinct from `null`.
+`limits.providers[].balance` is an optional native-currency prepaid balance block `{ amount, currency, todaySpend, monthSpend, monthSinceTracking }` used by pay-as-you-go providers (DeepSeek). `amount` is the spendable balance in the account's own currency (e.g. `CNY`/`USD`); `todaySpend`/`monthSpend` are derived from balance history (paid drawdown only); `monthSinceTracking` is `true` until a full month of history has accrued. `null` when not applicable. DeepSeek uses `source: "api"` with an empty `windows` array (it has no rate-limit windows).
 `windows[].kind` is `session`, `weekly`, or `billing`.
 
 ## `GET /api/stats`

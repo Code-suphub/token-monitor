@@ -71,7 +71,8 @@ const LIMIT_PROVIDERS = [
   { id: 'codex', label: 'Codex' },
   { id: 'cursor', label: 'Cursor' },
   { id: 'antigravity', label: 'Antigravity' },
-  { id: 'opencode', label: 'OpenCode' }
+  { id: 'opencode', label: 'OpenCode' },
+  { id: 'deepseek', label: 'DeepSeek' }
 ];
 const DEFAULT_LIMIT_PROVIDER_ORDER = LIMIT_PROVIDERS.map((provider) => provider.id).join(',');
 const limitProviderOrderApi = window.TokenMonitorLimitProviderOrder;
@@ -88,7 +89,7 @@ const windowShortcutApi = window.TokenMonitorWindowShortcut;
 const LIMIT_REFRESH_OPTIONS = [60000, 120000, 300000, 900000, 1800000];
 const WINDOW_BEHAVIOR_VALUES = ['floating', 'normal', 'desktop'];
 const WINDOW_BEHAVIOR_ICONS = { floating: '⇧', normal: '○', desktop: '⇩' };
-const LIMIT_SOURCE_LABELS = { oauth: 'OAuth', cli: 'CLI', web: 'Web', rpc: 'RPC', local: 'Local' };
+const LIMIT_SOURCE_LABELS = { oauth: 'OAuth', cli: 'CLI', web: 'Web', rpc: 'RPC', local: 'Local', api: 'API' };
 const LIMIT_CAPABILITY_TAG_KEYS = {
   Auto: 'settings.limits.capability.auto',
   'OAuth/CLI': 'settings.limits.capability.oauthCli',
@@ -99,6 +100,10 @@ const LIMIT_CAPABILITY_TAG_KEYS = {
   'App must be open': 'settings.limits.capability.appMustBeOpen',
   RPC: 'settings.limits.capability.rpc',
   'Local/Zen': 'settings.limits.capability.localZen',
+  'Pay-as-you-go': 'settings.limits.capability.payg',
+  'API key': 'settings.limits.capability.apiKey',
+  'Add API key': 'settings.limits.status.addApiKey',
+  'Update API key': 'settings.limits.status.updateApiKey',
   Live: 'settings.limits.status.live',
   Linked: 'settings.limits.status.linked',
   'Sign in': 'settings.limits.status.signIn',
@@ -145,7 +150,7 @@ function normalizeInitialViewValue(value, allowed, fallback) {
   return allowed.has(raw) ? raw : fallback;
 }
 
-const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'tool'), settings: null, stats: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, serviceStatusTicker: null, refreshTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, opencodeAccount: { status: null, error: '' }, opencodeCookieExpanded: false, floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
+const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'tool'), settings: null, stats: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, serviceStatusTicker: null, refreshTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, opencodeAccount: { status: null, error: '' }, opencodeCookieExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, showLiveDot: true, showToolIcons: true, titleIconOnly: false };
 let preferenceDrag = null;
@@ -295,9 +300,10 @@ function settingsSectionSummary(section) {
   if (section === 'accounts') {
     const cursorLinked = Boolean(state.cursorAccount.status?.loggedIn) && !state.cursorAccount.status?.expired;
     const opencodeLinked = Boolean(state.opencodeAccount.status?.linked) && !state.opencodeAccount.status?.expired;
+    const deepseekLinked = deepseekAccountLinked();
     return t('settings.summary.accounts', {
-      linked: (cursorLinked ? 1 : 0) + (opencodeLinked ? 1 : 0),
-      total: 2
+      linked: (cursorLinked ? 1 : 0) + (opencodeLinked ? 1 : 0) + (deepseekLinked ? 1 : 0),
+      total: 3
     });
   }
   if (section === 'limits') {
@@ -856,6 +862,15 @@ function formatLimitAmount(value) {
   return `$${number.toFixed(2)}`;
 }
 
+const CURRENCY_SYMBOLS = { CNY: '¥', USD: '$' };
+
+function formatMoney(value, currency) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '';
+  const symbol = CURRENCY_SYMBOLS[String(currency || '').toUpperCase()] || '$';
+  return `${symbol}${number.toFixed(2)}`;
+}
+
 function formatLimitWindowValue(window, fillPercent, hasPercent) {
   if (hasPercent) return `${formatPercent(fillPercent)} left`;
   if (!window) return '--';
@@ -866,6 +881,14 @@ function formatLimitWindowValue(window, fillPercent, hasPercent) {
   const limit = Number(window?.limit);
   if (Number.isFinite(limit)) return `${formatLimitAmount(limit)} cap`;
   return '';
+}
+
+function balanceRemainingWindow(balance) {
+  const amount = Math.max(0, Number(balance?.amount || 0));
+  const spend = Math.max(0, Number(balance?.monthSpend || 0));
+  const total = amount + spend;
+  const remainingPercent = total > 0 ? (amount / total) * 100 : 100;
+  return { remainingPercent };
 }
 
 function limitWindowNode(label, window, color, tone = 1, valueOverride = null) {
@@ -1000,6 +1023,29 @@ function renderLimits() {
         const node = limitWindowNode('Balance', { showMeter: false }, color, 0.68, formatLimitAmount(provider.balanceUsd));
         node.classList.add('limit-window-wide');
         windows.append(node);
+      }
+    } else if (provider.provider === 'deepseek') {
+      // DeepSeek is pay-as-you-go: render the prepaid balance as a meter so the
+      // provider uses the same visual language as fixed quota windows.
+      windows.classList.add('limit-windows-deepseek');
+      const balance = provider.balance || null;
+      if (balance) {
+        const currency = balance.currency;
+        const balanceNode = limitWindowNode('Balance', balanceRemainingWindow(balance), color, 0.95,
+          `${formatMoney(balance.amount, currency)} left`);
+        balanceNode.classList.add('limit-window-wide', 'limit-window-no-reset');
+        windows.append(balanceNode);
+
+        const parts = [];
+        if (Number.isFinite(Number(balance.todaySpend))) parts.push(`Today ${formatMoney(balance.todaySpend, currency)}`);
+        if (Number.isFinite(Number(balance.monthSpend))) {
+          parts.push(`Month ${formatMoney(balance.monthSpend, currency)}`);
+        }
+        if (parts.length) {
+          const spendNode = limitWindowNode('Spend', { showMeter: false }, color, 0.6, parts.join(' · '));
+          spendNode.classList.add('limit-window-wide', 'limit-window-note');
+          windows.append(spendNode);
+        }
       }
     } else {
       windows.append(limitWindowNode('Session', windowForKind(provider, 'session'), color, 0.95));
@@ -1421,6 +1467,7 @@ async function refreshStats(options = {}) {
     setStatus(statusTextFor(state.mode, state.streamConnected));
     render();
     renderLimitProviderCheckboxes();
+    renderDeepseekStatus();
     maybeUpdateBarsIcon();
   } catch (error) {
     setStatus(error.message, true);
@@ -1948,6 +1995,7 @@ function syncSettingsForm() {
   els.glassInput.value = String(state.settings.glassOpacity ?? 68);
   els.blurInput.value = String(state.settings.glassBlur ?? 32);
   els.zoomInput.value = String(Math.round((Number(state.settings.zoomFactor) || 1) * 100));
+  renderDeepseekStatus();
   renderViewPreferences();
   renderToolPreferences();
   renderLimitProviderCheckboxes();
@@ -2842,6 +2890,7 @@ window.tokenMonitor.onSettingsPush?.((next) => {
   if (!next) return;
   state.settings = next;
   syncSettingsForm();
+  renderDeepseekStatus();
   maybeUpdateBarsIcon();
 });
 
@@ -2887,6 +2936,7 @@ window.tokenMonitor.onStatsPush?.((payload) => {
   if (payload.data?.stats) {
     render();
     renderLimitProviderCheckboxes();
+    renderDeepseekStatus();
     maybeUpdateBarsIcon();
   }
   restartTimer();
@@ -3099,9 +3149,85 @@ function setOpencodeCookieExpanded(expanded) {
   if (group) group.classList.toggle('expanded', next);
 }
 
+function setDeepseekAccountExpanded(expanded) {
+  const toggle = document.getElementById('deepseekSettingsToggle');
+  const details = document.getElementById('deepseekSettingsDetails');
+  const group = document.getElementById('deepseekAccountGroup');
+  if (!toggle || !details) return;
+  const next = Boolean(expanded);
+  state.deepseekAccountExpanded = next;
+  toggle.setAttribute('aria-expanded', next ? 'true' : 'false');
+  details.classList.toggle('hidden', !next);
+  if (group) group.classList.toggle('expanded', next);
+}
+
 function setCursorStatusText(el, text) {
   el.textContent = text;
   el.title = text;
+}
+
+function deepseekAccountLinked() {
+  const provider = deepseekProviderForAccount();
+  return Boolean(state.settings?.deepseekApiKeyConfigured) && provider?.status === 'ok';
+}
+
+function deepseekProviderStatus() {
+  return (state.stats?.limits?.providers || []).find((provider) => provider.provider === 'deepseek') || null;
+}
+
+function deepseekProviderForAccount() {
+  const provider = deepseekProviderStatus();
+  const pendingSince = Number(state.deepseekPendingCheckSince || 0);
+  if (!provider || !pendingSince) return provider;
+  const updatedAt = Date.parse(provider.updatedAt || '');
+  if (!Number.isFinite(updatedAt) || updatedAt < pendingSince) return null;
+  state.deepseekPendingCheckSince = 0;
+  return provider;
+}
+
+function markDeepseekKeyCheckPending() {
+  state.deepseekPendingCheckSince = Date.now();
+  clearDeepseekProviderStatus();
+}
+
+function clearDeepseekPendingCheck() {
+  state.deepseekPendingCheckSince = 0;
+}
+
+function clearDeepseekProviderStatus() {
+  if (!Array.isArray(state.stats?.limits?.providers)) return;
+  state.stats.limits.providers = state.stats.limits.providers.filter((provider) => provider.provider !== 'deepseek');
+}
+
+function renderDeepseekStatus() {
+  const statusEl = document.getElementById('deepseekApiKeyStatus');
+  const openBtn = document.getElementById('deepseekOpenBrowser');
+  const logoutBtn = document.getElementById('deepseekLogoutButton');
+  const refreshBtn = document.getElementById('deepseekRefreshButton');
+  const manualPanel = document.getElementById('deepseekManualPanel');
+  const errorEl = document.getElementById('deepseekErrorMessage');
+  if (!statusEl || !openBtn || !logoutBtn || !refreshBtn || !manualPanel || !errorEl) return;
+
+  errorEl.classList.add('hidden');
+  errorEl.textContent = '';
+
+  const source = state.settings?.deepseekApiKeySource || '';
+  const provider = deepseekProviderForAccount();
+  const linked = deepseekAccountLinked();
+  if (linked) {
+    setCursorStatusText(statusEl, source === 'env' ? t('settings.deepseek.statusEnv') : t('settings.deepseek.statusSet'));
+  } else if (provider?.status === 'unauthorized') {
+    setCursorStatusText(statusEl, t('settings.deepseek.statusInvalid'));
+  } else if (state.settings?.deepseekApiKeyConfigured) {
+    setCursorStatusText(statusEl, t('settings.common.checking'));
+  } else {
+    setCursorStatusText(statusEl, t('settings.deepseek.statusNotSet'));
+  }
+  manualPanel.classList.toggle('hidden', linked);
+  openBtn.classList.toggle('hidden', linked);
+  logoutBtn.classList.toggle('hidden', !linked || source !== 'settings');
+  refreshBtn.classList.toggle('hidden', !linked);
+  renderSettingsSummaries();
 }
 
 function renderOpencodeStatus() {
@@ -3389,6 +3515,54 @@ function setupCursorAccountUI() {
     });
 
     refreshOpencodeStatus();
+  }
+
+  const deepseekToggle = document.getElementById('deepseekSettingsToggle');
+  if (deepseekToggle) {
+    deepseekToggle.addEventListener('click', () => setDeepseekAccountExpanded(!state.deepseekAccountExpanded));
+    setDeepseekAccountExpanded(false);
+    renderDeepseekStatus();
+
+    document.getElementById('deepseekOpenBrowser').addEventListener('click', () => {
+      window.tokenMonitor.openExternal('https://platform.deepseek.com/api_keys');
+    });
+
+    document.getElementById('deepseekLogoutButton').addEventListener('click', async () => {
+      await saveSettings({ deepseekApiKey: '' });
+      clearDeepseekPendingCheck();
+      clearDeepseekProviderStatus();
+      renderDeepseekStatus();
+      await refreshStats({ force: true });
+    });
+
+    document.getElementById('deepseekRefreshButton').addEventListener('click', async () => {
+      await refreshStats({ force: true });
+    });
+
+    document.getElementById('deepseekApiKeySubmit').addEventListener('click', async () => {
+      const input = document.getElementById('deepseekApiKeyInput');
+      const errorEl = document.getElementById('deepseekErrorMessage');
+      errorEl.classList.add('hidden');
+      if (!String(input.value || '').trim()) {
+        errorEl.textContent = t('settings.deepseek.statusNotSet');
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      try {
+        markDeepseekKeyCheckPending();
+        await saveSettings({ deepseekApiKey: input.value });
+        input.value = '';
+        renderDeepseekStatus();
+        await refreshStats({ force: true });
+        if (deepseekAccountLinked()) setDeepseekAccountExpanded(false);
+        else setDeepseekAccountExpanded(true);
+        renderDeepseekStatus();
+      } catch (err) {
+        clearDeepseekPendingCheck();
+        errorEl.textContent = t('settings.deepseek.saveFailed', { message: err.message });
+        errorEl.classList.remove('hidden');
+      }
+    });
   }
 }
 

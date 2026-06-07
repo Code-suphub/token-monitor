@@ -9,7 +9,7 @@ const { appVersion } = require('../shared/appVersion');
 const { DEFAULT_CLIENTS, clientsCsvForSetting } = require('../shared/clientTracking');
 const { startCollector } = require('../shared/collector');
 const { createHub } = require('../hub/server');
-const { normalizeLimitsRefreshMs, parseBoolean, parseLimitProviders } = require('../shared/limitCollector');
+const { deepseekToken, normalizeLimitsRefreshMs, parseBoolean, parseLimitProviders } = require('../shared/limitCollector');
 const {
   normalizeClientDisplayOrder,
   normalizeHiddenClients,
@@ -162,6 +162,7 @@ function defaultSettings() {
     startAtLogin: false,
     language: 'auto',
     opencodeCookie: '',
+    deepseekApiKey: '',
     appUpdate: {
       lastCheckedAt: null,
       lastKnownLatest: null,
@@ -176,6 +177,14 @@ function defaultLimitProviders() {
 
 function defaultLimitProviderOrder() {
   return parseLimitProviders().join(',');
+}
+
+function normalizeDeepSeekApiKey(value) {
+  return deepseekToken({}, String(value || ''));
+}
+
+function currentDeepSeekApiKey() {
+  return settings?.deepseekApiKey || deepseekToken(process.env);
 }
 
 function migrateLimitProviders(value) {
@@ -873,6 +882,7 @@ function startSyncCollector() {
     limitProviders: settings.limitProviders ?? defaultLimitProviders(),
     limitsRefreshMs: normalizeLimitsRefreshMs(settings.limitsRefreshMs),
     opencodeCookie: settings.opencodeCookie || process.env.TOKEN_MONITOR_OPENCODE_COOKIE || '',
+    deepseekApiKey: settings.deepseekApiKey || '',
     onUpdate: async (summary) => {
       const visibleSummary = summaryWithArchivedClientUsage(summary);
       lastCollectedDevice = { ...visibleSummary, receivedAt: new Date().toISOString() };
@@ -952,6 +962,7 @@ function startLocalCollector() {
     limitProviders: settings.limitProviders ?? defaultLimitProviders(),
     limitsRefreshMs: normalizeLimitsRefreshMs(settings.limitsRefreshMs),
     opencodeCookie: settings.opencodeCookie || process.env.TOKEN_MONITOR_OPENCODE_COOKIE || '',
+    deepseekApiKey: settings.deepseekApiKey || '',
     onUpdate: (summary, reason) => {
       const visibleSummary = summaryWithArchivedClientUsage(summary);
       localDevice = { ...visibleSummary, receivedAt: new Date().toISOString() };
@@ -1082,8 +1093,16 @@ function currentWindowToggleShortcutStatus() {
 }
 
 function settingsForRenderer() {
+  const deepseekApiKeySource = settings?.deepseekApiKey
+    ? 'settings'
+    : deepseekToken(process.env)
+      ? 'env'
+      : '';
   return {
     ...settings,
+    deepseekApiKey: '',
+    deepseekApiKeyConfigured: Boolean(currentDeepSeekApiKey()),
+    deepseekApiKeySource,
     windowToggleShortcutStatus: currentWindowToggleShortcutStatus()
   };
 }
@@ -1403,6 +1422,7 @@ function isAllowedExternalUrl(value) {
   if (parsed.hostname === 'github.com' && parsed.pathname.startsWith('/Javis603/token-monitor')) return true;
   if ((parsed.hostname === 'cursor.com' || parsed.hostname === 'www.cursor.com') && parsed.pathname.startsWith('/settings')) return true;
   if (parsed.hostname === 'opencode.ai' || parsed.hostname === 'www.opencode.ai') return true;
+  if (parsed.hostname === 'platform.deepseek.com' && parsed.pathname.startsWith('/api_keys')) return true;
   if (STATUS_PAGE_HOSTS.has(parsed.hostname) && (parsed.pathname === '' || parsed.pathname === '/')) return true;
   return false;
 }
@@ -1662,6 +1682,7 @@ app.whenReady().then(() => {
     const previousLimitsEnabled = settings.limitsEnabled;
     const previousLimitProviders = settings.limitProviders;
     const previousLimitsRefreshMs = settings.limitsRefreshMs;
+    const previousDeepSeekApiKey = settings.deepseekApiKey;
     const previousDiscordRpcEnabled = settings.discordRpcEnabled;
     const previousTrayMode = settings.trayMode;
     const previousTrayContent = settings.trayContent;
@@ -1670,6 +1691,7 @@ app.whenReady().then(() => {
     const normalizedCurrency = patch.currency !== undefined ? normalizeCurrency(patch.currency, settings.currency) : normalizeCurrency(settings.currency);
     const normalizedPatch = { ...patch, currency: normalizedCurrency };
     if (patch.clients !== undefined) normalizedPatch.clients = clientsCsvForSetting(patch.clients, '');
+    if (patch.deepseekApiKey !== undefined) normalizedPatch.deepseekApiKey = normalizeDeepSeekApiKey(patch.deepseekApiKey);
     settings = normalizeWindowBehaviorSettings({
       ...settings,
       ...normalizedPatch,
@@ -1707,7 +1729,8 @@ app.whenReady().then(() => {
       windowToggleShortcut: normalizeWindowToggleShortcut(patch.windowToggleShortcut ?? settings.windowToggleShortcut),
       currency: normalizedCurrency,
       language: patch.language !== undefined ? normalizeLanguageSetting(patch.language, settings.language) : normalizeLanguageSetting(settings.language),
-      startAtLogin: loginItemEnabledHere() ? parseBoolean(patch.startAtLogin ?? settings.startAtLogin, false) : false
+      startAtLogin: loginItemEnabledHere() ? parseBoolean(patch.startAtLogin ?? settings.startAtLogin, false) : false,
+      deepseekApiKey: patch.deepseekApiKey !== undefined ? normalizeDeepSeekApiKey(patch.deepseekApiKey) : (settings.deepseekApiKey || '')
     }, normalizedPatch);
     settings.archivedClientUsage = normalizeArchivedClientUsage(settings.archivedClientUsage);
     if (settings.clients !== previousClients) updateArchivedClientUsage(previousClients, settings.clients);
@@ -1743,7 +1766,8 @@ app.whenReady().then(() => {
       settings.clients !== previousClients ||
       settings.limitsEnabled !== previousLimitsEnabled ||
       settings.limitProviders !== previousLimitProviders ||
-      settings.limitsRefreshMs !== previousLimitsRefreshMs
+      settings.limitsRefreshMs !== previousLimitsRefreshMs ||
+      settings.deepseekApiKey !== previousDeepSeekApiKey
     ) {
       startMode();
     }

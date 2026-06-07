@@ -1,0 +1,94 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const test = require('node:test');
+
+const { computeConsumption } = require('../../src/shared/deepseekBalanceHistory');
+
+// 2026-06-07T10:00:00 local
+const NOW = new Date(2026, 5, 7, 10, 0, 0).getTime();
+const at = (h) => new Date(2026, 5, 7, h, 0, 0).getTime();
+
+test('computeConsumption: empty / single snapshot yields zero spend', () => {
+  assert.deepEqual(computeConsumption([], NOW), { todaySpend: 0, monthSpend: 0, monthSinceTracking: true });
+  const one = computeConsumption([{ ts: at(9), paid: 10 }], NOW);
+  assert.equal(one.todaySpend, 0);
+  assert.equal(one.monthSpend, 0);
+});
+
+test('computeConsumption: sums drops within the day', () => {
+  const snaps = [{ ts: at(7), paid: 10 }, { ts: at(8), paid: 7 }, { ts: at(9), paid: 4 }];
+  const r = computeConsumption(snaps, NOW);
+  assert.equal(r.todaySpend, 6);
+  assert.equal(r.monthSpend, 6);
+});
+
+test('computeConsumption: a top-up (balance increase) counts as zero, baseline carries', () => {
+  const snaps = [
+    { ts: at(7), paid: 10 }, { ts: at(8), paid: 7 }, { ts: at(9), paid: 4 },
+    { ts: new Date(2026, 5, 7, 9, 30).getTime(), paid: 54 }, // +50 top-up
+    { ts: new Date(2026, 5, 7, 9, 45).getTime(), paid: 51 }
+  ];
+  assert.equal(computeConsumption(snaps, NOW).todaySpend, 9);
+});
+
+test('computeConsumption: only today counted for todaySpend, month spans the month', () => {
+  const y = (d, h) => new Date(2026, 5, d, h, 0, 0).getTime();
+  const snaps = [{ ts: y(5, 9), paid: 10 }, { ts: y(5, 10), paid: 8 }, { ts: y(7, 9), paid: 8 }, { ts: y(7, 10), paid: 5 }];
+  const r = computeConsumption(snaps, NOW);
+  assert.equal(r.todaySpend, 3); // only the 8->5 drop on the 7th
+  assert.equal(r.monthSpend, 5); // 2 (on 5th) + 3 (on 7th)
+});
+
+test('computeConsumption: monthSinceTracking false when earliest snapshot predates month start', () => {
+  const may = new Date(2026, 4, 31, 23, 0, 0).getTime();
+  const r = computeConsumption([{ ts: may, paid: 10 }, { ts: at(9), paid: 9 }], NOW);
+  assert.equal(r.monthSinceTracking, false);
+});
+
+test('computeConsumption: rounds to cents', () => {
+  const snaps = [{ ts: at(8), paid: 10 }, { ts: at(9), paid: 9.999 }];
+  assert.equal(computeConsumption(snaps, NOW).todaySpend, 0); // 0.001 rounds to 0.00
+});
+
+const { recordConsumption } = require('../../src/shared/deepseekBalanceHistory');
+
+function memoryStore(initial = {}) {
+  const box = { value: JSON.parse(JSON.stringify(initial)) };
+  return {
+    readJson: () => JSON.parse(JSON.stringify(box.value)),
+    writeJsonAtomic: (_path, value) => { box.value = JSON.parse(JSON.stringify(value)); },
+    peek: () => box.value
+  };
+}
+
+test('recordConsumption: persists snapshot under accountKey and computes spend', () => {
+  const store = memoryStore();
+  const t0 = new Date(2026, 5, 7, 8, 0, 0).getTime();
+  const t1 = new Date(2026, 5, 7, 9, 0, 0).getTime();
+  recordConsumption({ accountKey: 'sha256:abc', currency: 'CNY', paid: 10, now: t0, storePath: '/x' }, store);
+  const r = recordConsumption({ accountKey: 'sha256:abc', currency: 'CNY', paid: 7, now: t1, storePath: '/x' }, store);
+  assert.equal(r.todaySpend, 3);
+  assert.equal(store.peek()['sha256:abc'].snapshots.length, 2);
+  assert.equal(store.peek()['sha256:abc'].currency, 'CNY');
+});
+
+test('recordConsumption: resets the series when the funded currency changes', () => {
+  const store = memoryStore();
+  const t0 = new Date(2026, 5, 7, 8, 0, 0).getTime();
+  const t1 = new Date(2026, 5, 7, 9, 0, 0).getTime();
+  recordConsumption({ accountKey: 'k', currency: 'CNY', paid: 10, now: t0, storePath: '/x' }, store);
+  const r = recordConsumption({ accountKey: 'k', currency: 'USD', paid: 4, now: t1, storePath: '/x' }, store);
+  assert.equal(store.peek().k.currency, 'USD');
+  assert.equal(store.peek().k.snapshots.length, 1); // old CNY series dropped
+  assert.equal(r.todaySpend, 0);
+});
+
+test('recordConsumption: prunes snapshots older than 40 days', () => {
+  const store = memoryStore();
+  const old = new Date(2026, 3, 1, 8, 0, 0).getTime(); // ~67 days before now
+  const now = new Date(2026, 5, 7, 9, 0, 0).getTime();
+  recordConsumption({ accountKey: 'k', currency: 'CNY', paid: 10, now: old, storePath: '/x' }, store);
+  recordConsumption({ accountKey: 'k', currency: 'CNY', paid: 9, now, storePath: '/x' }, store);
+  assert.equal(store.peek().k.snapshots.length, 1); // old one pruned
+});

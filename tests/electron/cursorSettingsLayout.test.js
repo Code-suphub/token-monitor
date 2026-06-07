@@ -115,3 +115,89 @@ test('OpenCode account panel mirrors Cursor linked-state controls', () => {
   assert.match(setupBody, /window\.tokenMonitor\.opencode\.logout\(\)/);
   assert.match(setupBody, /refreshOpencodeStatus\(\)/);
 });
+
+test('DeepSeek account panel provides a first-class API key entry', () => {
+  const html = readRendererFile('index.html');
+  const details = html.match(/<div id="deepseekSettingsDetails"[\s\S]*?<div id="deepseekErrorMessage" class="settings-note error hidden"><\/div>/)?.[0] || '';
+  assert.match(details, /<button id="deepseekOpenBrowser"[\s\S]*data-i18n="settings\.deepseek\.openBrowser">/);
+  assert.match(details, /<button id="deepseekLogoutButton" class="hidden" data-i18n="settings\.deepseek\.clearApiKey">/);
+  assert.match(details, /<input id="deepseekApiKeyInput" type="password"[\s\S]*data-i18n-placeholder="settings\.deepseek\.apiKeyPlaceholder"/);
+  assert.match(details, /<button id="deepseekApiKeySubmit"[\s\S]*data-i18n="settings\.deepseek\.saveApiKey">/);
+
+  const app = readRendererFile('app.js');
+  const setupBody = functionBodyBeforeMarker(app, 'setupCursorAccountUI', '\nsetupCursorAccountUI();');
+  assert.match(setupBody, /window\.tokenMonitor\.openExternal\('https:\/\/platform\.deepseek\.com\/api_keys'\)/);
+  assert.match(setupBody, /saveSettings\(\{ deepseekApiKey: input\.value \}\)/);
+  assert.match(setupBody, /saveSettings\(\{ deepseekApiKey: '' \}\)/);
+  assert.match(setupBody, /refreshStats\(\{ force: true \}\)/);
+  const renderBody = functionBody(app, 'renderDeepseekStatus', 'renderOpencodeStatus');
+  assert.match(renderBody, /const openBtn = document\.getElementById\('deepseekOpenBrowser'\);/);
+  assert.match(renderBody, /const linked = deepseekAccountLinked\(\);/);
+  assert.match(renderBody, /manualPanel\.classList\.toggle\('hidden', linked\)/);
+  assert.match(renderBody, /openBtn\.classList\.toggle\('hidden', linked\)/);
+  assert.match(renderBody, /logoutBtn\.classList\.toggle\('hidden', !linked \|\| source !== 'settings'\)/);
+  assert.match(renderBody, /refreshBtn\.classList\.toggle\('hidden', !linked\)/);
+});
+
+test('DeepSeek account linked state requires a validated API key', () => {
+  const app = readRendererFile('app.js');
+  const summaryBody = functionBody(app, 'settingsSectionSummary', 'renderSettingsSummaries');
+  assert.match(summaryBody, /const deepseekLinked = deepseekAccountLinked\(\);/);
+  assert.doesNotMatch(
+    summaryBody,
+    /const deepseekLinked = Boolean\(state\.settings\?\.deepseekApiKeyConfigured\);/,
+    'the account summary should not count an unverified stored API key as linked'
+  );
+
+  const linkedBody = functionBody(app, 'deepseekAccountLinked', 'deepseekProviderStatus');
+  assert.match(linkedBody, /Boolean\(state\.settings\?\.deepseekApiKeyConfigured\)/);
+  assert.match(linkedBody, /deepseekProviderForAccount\(\)/);
+  assert.match(linkedBody, /provider\?\.status === 'ok'/);
+
+  const renderBody = functionBody(app, 'renderDeepseekStatus', 'renderOpencodeStatus');
+  assert.match(
+    renderBody,
+    /if \(linked\) \{[\s\S]*settings\.deepseek\.statusSet[\s\S]*\} else if \(provider\?\.status === 'unauthorized'\) \{/,
+    'validated ok should be handled before invalid or pending states'
+  );
+});
+
+test('DeepSeek key changes invalidate stale provider status before re-checking', () => {
+  const app = readRendererFile('app.js');
+  const setupBody = functionBodyBeforeMarker(app, 'setupCursorAccountUI', '\nsetupCursorAccountUI();');
+  assert.match(setupBody, /markDeepseekKeyCheckPending\(\);[\s\S]*await saveSettings\(\{ deepseekApiKey: input\.value \}\);[\s\S]*renderDeepseekStatus\(\);[\s\S]*await refreshStats\(\{ force: true \}\);/);
+  assert.match(setupBody, /await saveSettings\(\{ deepseekApiKey: '' \}\);[\s\S]*clearDeepseekPendingCheck\(\);[\s\S]*clearDeepseekProviderStatus\(\);[\s\S]*renderDeepseekStatus\(\);/);
+
+  const pendingBody = functionBody(app, 'markDeepseekKeyCheckPending', 'clearDeepseekPendingCheck');
+  assert.match(pendingBody, /state\.deepseekPendingCheckSince = Date\.now\(\);/);
+  assert.match(pendingBody, /clearDeepseekProviderStatus\(\);/);
+
+  const providerBody = functionBody(app, 'deepseekProviderForAccount', 'markDeepseekKeyCheckPending');
+  assert.match(providerBody, /const pendingSince = Number\(state\.deepseekPendingCheckSince \|\| 0\);/);
+  assert.match(providerBody, /Date\.parse\(provider\.updatedAt \|\| ''\)/);
+  assert.match(providerBody, /updatedAt < pendingSince/);
+  assert.match(providerBody, /state\.deepseekPendingCheckSince = 0;/);
+
+  const clearBody = functionBody(app, 'clearDeepseekProviderStatus', 'renderDeepseekStatus');
+  assert.match(clearBody, /state\.stats\.limits\.providers = state\.stats\.limits\.providers\.filter/);
+  assert.match(clearBody, /provider\.provider !== 'deepseek'/);
+});
+
+test('DeepSeek account copy says browser and external URL is allowlisted', () => {
+  const html = readRendererFile('index.html');
+  const details = html.match(/<div id="deepseekSettingsDetails"[\s\S]*?<div id="deepseekErrorMessage" class="settings-note error hidden"><\/div>/)?.[0] || '';
+  assert.match(details, /<button id="deepseekOpenBrowser"[\s\S]*data-i18n="settings\.deepseek\.openBrowser">/);
+
+  const i18n = readRendererFile('i18n.js');
+  assert.match(i18n, /'settings\.deepseek\.openBrowser': 'Open DeepSeek API keys in browser'/);
+  assert.match(i18n, /'settings\.deepseek\.openBrowser': '在瀏覽器開啟 DeepSeek API 金鑰'/);
+  assert.match(i18n, /'settings\.deepseek\.openBrowser': '在浏览器打开 DeepSeek API 密钥'/);
+
+  const main = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'electron', 'main.js'), 'utf8');
+  const allowlist = functionBody(main, 'isAllowedExternalUrl', 'revealWindow');
+  assert.match(allowlist, /parsed\.hostname === 'platform\.deepseek\.com'/);
+
+  const app = readRendererFile('app.js');
+  const setupBody = functionBodyBeforeMarker(app, 'setupCursorAccountUI', '\nsetupCursorAccountUI();');
+  assert.match(setupBody, /window\.tokenMonitor\.openExternal\('https:\/\/platform\.deepseek\.com\/api_keys'\)/);
+});

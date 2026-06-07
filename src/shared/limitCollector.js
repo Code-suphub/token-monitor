@@ -12,8 +12,10 @@ const cursorProbe = require('./cursorProbe');
 const antigravityProbe = require('./antigravityProbe');
 const opencodeLimits = require('./opencodeLimits');
 const opencodeWeb = require('./opencodeWeb');
+const { sharedDataDir } = require('./config');
+const { recordConsumption } = require('./deepseekBalanceHistory');
 
-const LIMIT_PROVIDER_IDS = ['claude', 'codex', 'cursor', 'antigravity', 'opencode'];
+const LIMIT_PROVIDER_IDS = ['claude', 'codex', 'cursor', 'antigravity', 'opencode', 'deepseek'];
 const LIMIT_REFRESH_VALUES = new Set([60_000, 120_000, 300_000, 900_000, 1_800_000]);
 const CLAUDE_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 const CLAUDE_OAUTH_TOKEN_URL = 'https://console.anthropic.com/v1/oauth/token';
@@ -36,7 +38,7 @@ function parseBoolean(value, fallback = true) {
 function parseLimitProviders(value) {
   const isEmpty = value === undefined || value === null || value === ''
     || (Array.isArray(value) && value.length === 0);
-  const source = isEmpty ? 'claude,codex,cursor,antigravity,opencode' : value;
+  const source = isEmpty ? LIMIT_PROVIDER_IDS : value;
   const raw = Array.isArray(source) ? source : String(source).split(',');
   const seen = new Set();
   const providers = [];
@@ -1374,6 +1376,92 @@ function statusProvider(provider, status, updatedAt) {
   return normalizeLimitProvider({ provider, status, updatedAt, windows: [] });
 }
 
+function cleanSecret(value) {
+  let raw = value;
+  if (typeof raw !== 'string') return '';
+  raw = raw.trim();
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    raw = raw.slice(1, -1).trim();
+  }
+  return raw;
+}
+
+function deepseekToken(env = process.env, explicitKey = '') {
+  const explicit = cleanSecret(explicitKey);
+  if (explicit) return explicit;
+  for (const name of ['DEEPSEEK_API_KEY', 'DEEPSEEK_KEY']) {
+    const raw = cleanSecret(env[name]);
+    if (raw) return raw;
+  }
+  return '';
+}
+
+// rows: balance_infos from /user/balance. Returns { currency, amount(total), paid(topped_up) }.
+function selectFundedRow(rows) {
+  const parsed = [];
+  for (const row of rows || []) {
+    const amount = Number(row && row.total_balance);
+    const paid = Number(row && row.topped_up_balance);
+    const currency = String((row && row.currency) || '').trim().toUpperCase();
+    if (!Number.isFinite(amount) || !Number.isFinite(paid) || !currency) continue;
+    parsed.push({ currency, amount, paid });
+  }
+  if (parsed.length === 0) throw errorWithStatus('unavailable', 'no usable balance rows');
+  const funded = parsed
+    .filter((r) => r.amount > 0)
+    .sort((a, b) => (b.amount - a.amount) || (a.currency === 'USD' ? -1 : b.currency === 'USD' ? 1 : 0));
+  if (funded.length) return funded[0];
+  return parsed.find((r) => r.currency === 'USD') || parsed[0];
+}
+
+const DEEPSEEK_BALANCE_URL = 'https://api.deepseek.com/user/balance';
+
+async function fetchDeepSeekLimits(options = {}, deps = {}) {
+  const env = deps.env || process.env;
+  const now = (deps.now || Date.now)();
+  const key = deepseekToken(env, options.deepseekApiKey);
+  if (!key) {
+    return normalizeLimitProvider({ provider: 'deepseek', source: 'api', status: 'notConfigured', updatedAt: nowIso(now), windows: [] });
+  }
+  try {
+    const data = await fetchJson(DEEPSEEK_BALANCE_URL, { Authorization: `Bearer ${key}`, Accept: 'application/json' }, deps);
+    if (!data || !Array.isArray(data.balance_infos)) {
+      throw errorWithStatus('unavailable', 'unexpected balance response shape');
+    }
+    const row = selectFundedRow(data.balance_infos);
+    const accountKey = hashKey('deepseek', key);
+    const storePath = deps.deepseekStorePath || path.join(sharedDataDir({ env }), 'deepseek-balance.json');
+    const spend = recordConsumption(
+      { accountKey, currency: row.currency, paid: row.paid, now, storePath },
+      deps
+    );
+    return normalizeLimitProvider({
+      provider: 'deepseek',
+      accountKey,
+      accountLabel: 'Pay-as-you-go',
+      source: 'api',
+      status: 'ok',
+      updatedAt: nowIso(now),
+      windows: [],
+      balance: {
+        amount: row.amount,
+        currency: row.currency,
+        todaySpend: spend.todaySpend,
+        monthSpend: spend.monthSpend,
+        monthSinceTracking: spend.monthSinceTracking
+      }
+    });
+  } catch (error) {
+    return normalizeLimitProvider({
+      provider: 'deepseek',
+      source: 'api',
+      status: providerStatusFromError(error),
+      updatedAt: nowIso(now),
+      windows: []
+    });
+  }
+}
+
 async function collectLimitsOnce(options = {}, deps = {}) {
   const enabled = parseBoolean(options.limitsEnabled ?? options.enabled, true);
   const refreshMs = normalizeLimitsRefreshMs(options.limitsRefreshMs ?? options.refreshMs);
@@ -1386,6 +1474,7 @@ async function collectLimitsOnce(options = {}, deps = {}) {
     cursor: (providerOptions) => fetchCursorLimits(providerOptions, deps),
     antigravity: (providerOptions) => fetchAntigravityLimits(providerOptions, deps),
     opencode: (providerOptions) => fetchOpenCodeLimits(providerOptions, deps),
+    deepseek: (providerOptions) => fetchDeepSeekLimits(providerOptions, deps),
     ...(deps.providerFetchers || {})
   };
   const providers = [];
@@ -1602,6 +1691,9 @@ module.exports = {
   fetchClaudeLimits,
   fetchCodexLimits,
   fetchCursorLimits,
+  fetchDeepSeekLimits,
+  deepseekToken,
+  selectFundedRow,
   mapClaudeCliUsageToProvider,
   mapClaudeUsageToProvider,
   mapCodexRateLimitsToProvider,

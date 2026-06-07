@@ -1228,6 +1228,10 @@ body.floating-bubble-collapsed-right .floating-bubble-tab {
   -webkit-mask-image: url(../../../assets/icons/opencode.svg);
   mask-image: url(../../../assets/icons/opencode.svg);
 }
+.limit-icon-deepseek {
+  -webkit-mask-image: url(../../../assets/icons/deepseek.svg);
+  mask-image: url(../../../assets/icons/deepseek.svg);
+}
 .row-label {
   display: grid;
   min-width: 0;
@@ -1523,6 +1527,10 @@ body.floating-bubble-collapsed-right .floating-bubble-tab {
   font-size: 10px;
   white-space: normal;
 }
+.limit-window-no-reset .limit-reset {
+  display: none;
+  min-height: 0;
+}
 .limit-row.stale .limit-name, .limit-row.stale .limit-window-text span:last-child { color: var(--muted); }
 .footer {
   position: relative;
@@ -1606,16 +1614,20 @@ body.floating-bubble-collapsed-right .floating-bubble-tab {
 .cursor-settings-details.hidden { display: none; }
 #cursorManualPanel.hidden,
 #opencodeManualPanel.hidden,
+#deepseekManualPanel.hidden,
 #cursorErrorMessage.hidden,
-#opencodeErrorMessage.hidden { display: none; }
+#opencodeErrorMessage.hidden,
+#deepseekErrorMessage.hidden { display: none; }
 #cursorManualPanel,
-#opencodeManualPanel {
+#opencodeManualPanel,
+#deepseekManualPanel {
   display: grid;
   min-width: 0;
   gap: 8px;
 }
 #cursorManualPanel textarea,
-#opencodeManualPanel textarea {
+#opencodeManualPanel textarea,
+#deepseekManualPanel input {
   width: 100%;
   font-family: monospace;
   font-size: 12px;

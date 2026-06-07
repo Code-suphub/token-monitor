@@ -10,7 +10,8 @@
     cli: 'CLI',
     web: 'Web',
     rpc: 'RPC',
-    local: 'Local'
+    local: 'Local',
+    api: 'API'
   };
 
   const PROVIDER_SOURCE_LABELS = {
@@ -18,7 +19,8 @@
     codex: { rpc: 'RPC' },
     cursor: { web: 'Web' },
     antigravity: { rpc: 'RPC' },
-    opencode: { local: 'Local', web: 'Web' }
+    opencode: { local: 'Local', web: 'Web' },
+    deepseek: { api: 'API' }
   };
 
   const CODEX_RPC_DETAIL_LABELS = {
@@ -32,7 +34,8 @@
     codex: ['Auto', 'App/CLI RPC'],
     cursor: ['Manual login', 'Web'],
     antigravity: ['App must be open', 'RPC'],
-    opencode: ['Local/Web', 'Manual login']
+    opencode: ['Local/Web', 'Manual login'],
+    deepseek: ['Pay-as-you-go', 'API key']
   };
 
   function normalizeId(value) {
@@ -94,13 +97,18 @@
     if (status === 'ok') return { label: isLinkedStatus(provider) ? 'Linked' : 'Live', tone: 'ok' };
     if (status === 'disabled') return { label: 'Disabled', tone: 'muted' };
     if (status === 'noSyncedData') return { label: 'No synced data', tone: 'sync' };
-    if (status === 'unauthorized') return { label: 'Sign in again', tone: 'setup' };
+    if (status === 'unauthorized') {
+      return providerName === 'deepseek'
+        ? { label: 'Update API key', tone: 'setup' }
+        : { label: 'Sign in again', tone: 'setup' };
+    }
     if (status === 'rateLimited') return { label: 'Limited', tone: 'warn' };
     if (status === 'sourceRateLimited') return { label: 'Usage API limited', tone: 'warn' };
     if (status === 'unavailable') return { label: 'Unavailable', tone: 'warn' };
     if (status === 'notConfigured') {
       if (providerName === 'antigravity') return { label: 'Open app', tone: 'setup' };
       if (providerName === 'cursor') return { label: 'Sign in', tone: 'setup' };
+      if (providerName === 'deepseek') return { label: 'Add API key', tone: 'setup' };
       return { label: 'Not set up', tone: 'setup' };
     }
     return status ? { label: 'Error', tone: 'warn' } : null;
@@ -198,6 +206,7 @@
     limitProviderMainDeviceLabel,
     limitProviderProvenance,
     limitProviderSourceLabel,
+    limitProviderStatusLabel,
     limitProviderSettingsTags
   };
 });

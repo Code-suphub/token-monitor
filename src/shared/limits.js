@@ -1,9 +1,9 @@
 'use strict';
 
 const DEFAULT_LIMITS_REFRESH_MS = 5 * 60 * 1000;
-const VALID_PROVIDERS = new Set(['claude', 'codex', 'cursor', 'antigravity', 'opencode']);
+const VALID_PROVIDERS = new Set(['claude', 'codex', 'cursor', 'antigravity', 'opencode', 'deepseek']);
 const VALID_STATUSES = new Set(['ok', 'disabled', 'notConfigured', 'unauthorized', 'rateLimited', 'sourceRateLimited', 'unavailable', 'error']);
-const VALID_SOURCES = new Set(['oauth', 'cli', 'web', 'rpc', 'local']);
+const VALID_SOURCES = new Set(['oauth', 'cli', 'web', 'rpc', 'local', 'api']);
 const VALID_SOURCE_DETAILS = new Set(['app', 'cli', 'unknown']);
 const WINDOW_ORDER = ['session', 'weekly', 'billing'];
 
@@ -109,6 +109,20 @@ function normalizeLimitWindow(input) {
   };
 }
 
+function normalizeProviderBalance(input) {
+  if (!input || typeof input !== 'object') return null;
+  const amount = numberOrNull(input.amount);
+  const currency = String(input.currency || '').trim().toUpperCase().slice(0, 8) || null;
+  if (amount === null && !currency) return null;
+  return {
+    amount,
+    currency,
+    todaySpend: numberOrNull(input.todaySpend),
+    monthSpend: numberOrNull(input.monthSpend),
+    monthSinceTracking: Boolean(input.monthSinceTracking)
+  };
+}
+
 function normalizeLimitProvider(input) {
   if (!input || typeof input !== 'object') return null;
   const provider = normalizeProviderId(input.provider);
@@ -126,7 +140,8 @@ function normalizeLimitProvider(input) {
     sourceDetail: normalizeSourceDetail(input.sourceDetail ?? input.source_detail),
     updatedAt: normalizeIsoTimestamp(input.updatedAt) || normalizeIsoTimestamp(input.checkedAt),
     windows,
-    balanceUsd: numberOrNull(input.balanceUsd)
+    balanceUsd: numberOrNull(input.balanceUsd),
+    balance: normalizeProviderBalance(input.balance)
   };
 }
 

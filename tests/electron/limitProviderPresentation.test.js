@@ -161,6 +161,22 @@ test('capability tags are settings-only and do not alter the main Limits panel',
   assert.doesNotMatch(styles, /\.limit-status\b/);
 });
 
+test('DeepSeek main Limits row uses a balance meter without since-tracking copy', () => {
+  const app = readRendererFile('app.js');
+  const renderLimits = functionBody(app, 'renderLimits', 'nextBreakdown');
+  const balanceWindow = functionBody(app, 'balanceRemainingWindow', 'limitWindowNode');
+  const styles = readRendererFile('styles.css');
+
+  assert.match(renderLimits, /const balanceNode = limitWindowNode\('Balance', balanceRemainingWindow\(balance\), color, 0\.95,/);
+  assert.match(renderLimits, /balanceNode\.classList\.add\('limit-window-wide', 'limit-window-no-reset'\);/);
+  assert.match(renderLimits, /const spendNode = limitWindowNode\('Spend', \{ showMeter: false \}, color, 0\.6,/);
+  assert.doesNotMatch(renderLimits, /Month \(since tracking\)/);
+  assert.doesNotMatch(renderLimits, /monthSinceTracking \? 'Month \(since tracking\)' : 'Month'/);
+  assert.match(balanceWindow, /remainingPercent/);
+  assert.match(balanceWindow, /amount \+ spend/);
+  assert.match(styles, /\.limit-window-no-reset \.limit-reset\s*\{/);
+});
+
 test('settings provider status waits for stats and refreshes when stats arrive', () => {
   const app = readRendererFile('app.js');
   const renderSettings = functionBody(app, 'renderLimitProviderCheckboxes', 'onToolTrackingToggle');
@@ -170,4 +186,22 @@ test('settings provider status waits for stats and refreshes when stats arrive',
   assert.doesNotMatch(renderSettings, /state\.stats \? missingLimitProviderStatus\(\) : 'unavailable'/);
   assert.match(refreshStats, /renderLimitProviderCheckboxes\(\);/);
   assert.match(statsPush, /renderLimitProviderCheckboxes\(\);/);
+});
+
+const presentation = require('../../src/electron/renderer/limitProviderPresentation');
+
+test('deepseek source label and capability tags', () => {
+  assert.equal(presentation.limitProviderSourceLabel({ provider: 'deepseek', source: 'api' }), 'API');
+  assert.deepEqual(presentation.limitProviderCapabilityTags('deepseek'), ['Pay-as-you-go', 'API key']);
+});
+
+test('deepseek status copy: notConfigured -> Add API key, unauthorized -> Update API key', () => {
+  assert.deepEqual(
+    presentation.limitProviderStatusLabel({ provider: 'deepseek', status: 'notConfigured' }),
+    { label: 'Add API key', tone: 'setup' }
+  );
+  assert.deepEqual(
+    presentation.limitProviderStatusLabel({ provider: 'deepseek', status: 'unauthorized' }),
+    { label: 'Update API key', tone: 'setup' }
+  );
 });

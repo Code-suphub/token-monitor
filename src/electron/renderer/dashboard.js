@@ -110,6 +110,7 @@ function colorFor(key) {
 // colors are carried in data-c and applied via the CSSOM (.style, which CSP allows).
 function applySwatchColors(root) {
   root.querySelectorAll('[data-c]').forEach((el) => { el.style.background = el.getAttribute('data-c'); });
+  root.querySelectorAll('[data-w]').forEach((el) => { el.style.width = el.getAttribute('data-w'); });
 }
 
 function renderLegend(model) {
@@ -161,6 +162,47 @@ function renderTrends() {
   els.chart.innerHTML = charts.barsChartSvg(model, { colorFor, yTicks: 4, formatTick: formatCompact, axisLabel: (bar, i) => (i % every === 0 ? shortDate(bar.label) : '') });
 }
 
+function renderBreakdown() {
+  const elsBreakdown = document.getElementById('dashBreakdown');
+  if (!elsBreakdown) return;
+  const daily = state.history?.daily || [];
+  if (daily.length === 0) { elsBreakdown.innerHTML = ''; return; }
+  
+  const clientTotals = {};
+  const modelTotals = {};
+  let grandTotal = 0;
+  
+  for (const d of daily) {
+    if (d.perClient) Object.entries(d.perClient).forEach(([k, v]) => clientTotals[k] = (clientTotals[k] || 0) + Number(v.tokens || 0));
+    if (d.perModel) Object.entries(d.perModel).forEach(([k, v]) => modelTotals[k] = (modelTotals[k] || 0) + Number(v.tokens || 0));
+    grandTotal += Number(d.tokens || 0);
+  }
+  
+  const buildCol = (titleKey, map, colorFn) => {
+    const rows = Object.entries(map).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (rows.length === 0) return '';
+    const maxVal = Math.max(...rows.map(x => x[1]));
+    const html = rows.map(([key, val]) => {
+      const pctGrand = grandTotal > 0 ? (val / grandTotal * 100).toFixed(1) : '0.0';
+      const pctMax = maxVal > 0 ? (val / maxVal * 100).toFixed(1) : '0.0';
+      const color = displayColor(colorFn(key));
+      return `<div class="dash-bd-row">
+        <span class="dash-bd-name"><span class="dash-bd-swatch" data-c="${color}"></span>${String(key).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</span>
+        <div class="dash-bd-bar-bg"><div class="dash-bd-bar-fill" data-w="${pctMax}%" data-c="${color}"></div></div>
+        <span class="dash-bd-val">${formatCompact(val)}</span>
+        <span class="dash-bd-pct">${pctGrand}%</span>
+      </div>`;
+    }).join('');
+    return `<div class="dash-breakdown-col"><div class="dash-breakdown-title" data-i18n="${titleKey}">${t(titleKey)}</div>${html}</div>`;
+  };
+  
+  const colModel = buildCol('dashboard.stack.model', modelTotals, charts.modelColor);
+  const colClient = buildCol('dashboard.stack.client', clientTotals, (k) => charts.clientColors[k] || charts.clientColors.default);
+  
+  elsBreakdown.innerHTML = colModel + colClient;
+  applySwatchColors(elsBreakdown);
+}
+
 function renderActivity() {
   const daily = state.history?.daily || [];
   const end = todayKey();
@@ -191,6 +233,7 @@ function renderActivity() {
     label: (k) => t(LABELS[k] || k),
     format: (c) => (c.kind === 'cost' ? formatCostCompact(c.value) : c.kind === 'model' ? (c.value || '—') : formatCompact(c.value))
   });
+  renderBreakdown();
 }
 
 function render() {

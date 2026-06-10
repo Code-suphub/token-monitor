@@ -1,8 +1,13 @@
 'use strict';
 
 const charts = window.TokenMonitorUsageCharts;
+const themePresetsApi = window.TokenMonitorThemePresets;
 const i18n = window.TokenMonitorI18n;
 const currencyApi = window.TokenMonitorCurrency;
+
+// Canonical brand colours, captured before any override (clientColors is shared
+// by reference and mutated in place to apply vendor overrides).
+const BRAND_VENDOR_COLORS = { ...charts.clientColors };
 
 const els = {
   body: document.body,
@@ -40,7 +45,22 @@ function applyAppearance(settings) {
   const root = document.documentElement.style;
   root.setProperty('--glass-alpha', opacity.toFixed(2));
   root.setProperty('--line-alpha', (0.1 + depth * 0.09).toFixed(3));
+  applyThemeColors(settings?.themeColors);
+  applyVendorColorOverrides(settings?.vendorColors);
   els.body.classList.toggle('flat', state.flat);
+}
+
+function applyThemeColors(overrides) {
+  const root = document.documentElement.style;
+  for (const { name, value } of themePresetsApi.themeCssVarEntries(overrides)) {
+    if (value) root.setProperty(name, value);
+    else root.removeProperty(name);
+  }
+}
+
+function applyVendorColorOverrides(overrides) {
+  const merged = themePresetsApi.mergeVendorColors(BRAND_VENDOR_COLORS, overrides);
+  for (const key of Object.keys(BRAND_VENDOR_COLORS)) charts.clientColors[key] = merged[key];
 }
 
 function formatCompact(value) {

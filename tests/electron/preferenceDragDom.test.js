@@ -30,6 +30,7 @@ const settingsIconAssets = {
   general: 'general.svg',
   main: 'main.svg',
   window: 'window.svg',
+  appearance: 'appearance.svg',
   tools: 'collection.svg',
   limits: 'limits.svg',
   accounts: 'accounts.svg',
@@ -125,10 +126,13 @@ test('settings page uses collapsible icon sections with summaries', () => {
   assert.match(html, /data-settings-section="general"/);
   assert.match(html, /data-settings-section="main"/);
   assert.match(html, /data-settings-section="window"/);
+  assert.match(html, /data-settings-section="appearance"/);
   assert.match(html, /data-settings-section="tools"/);
+  assert.match(html, /id="appearanceSettingsSummary"/);
   assert.match(html, /aria-controls="generalSettingsDetails"/);
   assert.match(html, /aria-controls="mainSettingsDetails"/);
   assert.match(html, /aria-controls="windowSettingsDetails"/);
+  assert.match(html, /aria-controls="appearanceSettingsDetails"/);
 
   const app = readRendererFile('app.js');
   assert.match(app, /setupSettingsSections/);
@@ -148,7 +152,7 @@ test('settings page uses collapsible icon sections with summaries', () => {
   }
 });
 
-test('main section holds views and appearance; window section holds behavior and presence', () => {
+test('main section holds views; appearance is its own section; window holds behavior and presence', () => {
   const html = readRendererFile('index.html');
 
   const main = html.slice(
@@ -156,20 +160,30 @@ test('main section holds views and appearance; window section holds behavior and
     html.indexOf('<div class="settings-group settings-collapsible-group settings-window-section-group"')
   );
   assert.notEqual(main, '', 'main section should exist');
-  const mainScreenIndex = main.indexOf('settings-main-screen-group');
-  const appearanceIndex = main.indexOf('settings-appearance-group');
-  assert.ok(mainScreenIndex >= 0, 'main screen group should be first-class');
-  assert.ok(appearanceIndex > mainScreenIndex, 'appearance group should follow main screen');
+  assert.ok(main.indexOf('settings-main-screen-group') >= 0, 'main screen group should be first-class');
+  assert.doesNotMatch(main, /settings-appearance-group/, 'appearance moved out of main');
+  assert.match(main, /id="viewDisplayList"/);
+  assert.match(main, /id="currencyInput"/);
+  assert.doesNotMatch(main, /id="historyEnabledInput"/);
   assert.doesNotMatch(main, /settings\.language\.title/);
 
-  const mainScreen = main.match(/<div class="settings-subgroup settings-main-screen-group">[\s\S]*?<div class="settings-subgroup settings-appearance-group">/)?.[0] || '';
-  assert.match(mainScreen, /id="viewDisplayList"/);
-  assert.doesNotMatch(mainScreen, /id="historyEnabledInput"/);
-  assert.match(mainScreen, /id="currencyInput"/);
+  // Appearance is now a top-level section between window and tools, holding the
+  // moved glass/zoom controls plus the theme and vendor colour pickers.
+  const appearance = html.slice(
+    html.indexOf('<div id="appearanceSettingsDetails"'),
+    html.indexOf('<div class="settings-group settings-collapsible-group settings-tools-group"')
+  );
+  assert.notEqual(appearance, '', 'appearance section should exist');
+  assert.match(appearance, /id="systemGlassInput"/);
+  assert.match(appearance, /id="glassInput"/);
+  assert.match(appearance, /id="zoomInput"/);
+  assert.match(appearance, /id="themePresetChips"/);
+  assert.match(appearance, /id="themeColorGrid"/);
+  assert.match(appearance, /id="vendorColorList"/);
 
   const windowSection = html.slice(
     html.indexOf('<div id="windowSettingsDetails"'),
-    html.indexOf('<div class="settings-group settings-collapsible-group settings-tools-group"')
+    html.indexOf('<div class="settings-group settings-collapsible-group settings-appearance-section-group"')
   );
   assert.notEqual(windowSection, '', 'window section should exist');
   const windowIndex = windowSection.indexOf('settings-window-group');

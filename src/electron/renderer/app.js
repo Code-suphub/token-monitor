@@ -120,7 +120,7 @@ const SERVICE_STATUS_PLACEHOLDERS = [
 ];
 const SERVICE_PROVIDER_OPTIONS = SERVICE_STATUS_PLACEHOLDERS.map((entry) => ({ id: entry.id, label: entry.label }));
 const serviceStatusProviderPreferencesApi = window.TokenMonitorServiceStatusProviderPreferences;
-const SETTINGS_SECTION_IDS = ['general', 'main', 'window', 'tools', 'limits', 'accounts', 'sync'];
+const SETTINGS_SECTION_IDS = ['general', 'main', 'window', 'appearance', 'tools', 'limits', 'accounts', 'sync'];
 const initialFloatingBubble = window.__TOKEN_MONITOR_INITIAL_FLOATING_BUBBLE__ || { collapsed: false, side: null };
 const initialViewState = window.__TOKEN_MONITOR_INITIAL_VIEW_STATE__ || {};
 let initialBreakdownPreferenceApplied = typeof initialViewState.breakdown === 'string';
@@ -184,6 +184,12 @@ Object.assign(els, {
   generalSettingsSummary: document.getElementById('generalSettingsSummary'),
   mainSettingsSummary: document.getElementById('mainSettingsSummary'),
   windowSettingsSummary: document.getElementById('windowSettingsSummary'),
+  appearanceSettingsSummary: document.getElementById('appearanceSettingsSummary'),
+  themePresetChips: document.getElementById('themePresetChips'),
+  themeColorGrid: document.getElementById('themeColorGrid'),
+  vendorColorList: document.getElementById('vendorColorList'),
+  resetThemeColorsButton: document.getElementById('resetThemeColorsButton'),
+  resetVendorColorsButton: document.getElementById('resetVendorColorsButton'),
   sessionDetail: document.getElementById('session-detail'),
   sessionDetailHead: document.getElementById('session-detail-head')
 });
@@ -309,6 +315,9 @@ function settingsSectionSummary(section) {
   if (section === 'window') {
     const behavior = WINDOW_BEHAVIOR_VALUES.includes(state.settings.windowBehavior) ? state.settings.windowBehavior : 'floating';
     return t(`settings.windowBehavior.${behavior}`);
+  }
+  if (section === 'appearance') {
+    return appearanceSummary();
   }
   if (section === 'general') {
     const startup = state.appInfo?.loginItemSupported
@@ -1596,6 +1605,9 @@ function applyAppearanceSettings(settings) {
   document.documentElement.style.setProperty('--line-strong-alpha', (0.18 + depth * 0.14).toFixed(3));
   document.documentElement.style.setProperty('--control-alpha', (0.03 + depth * 0.045).toFixed(3));
   document.documentElement.style.setProperty('--highlight-alpha', (0.045 + depth * 0.06).toFixed(3));
+  // Only full settings objects carry themeColors; glass/zoom preview patches
+  // omit it, so we must not wipe theme overrides mid-slider-drag.
+  if (settings && 'themeColors' in settings) applyThemeColors(settings.themeColors);
   els.liveDot.style.display = (settings?.showLiveDot !== false) ? '' : 'none';
   els.shell.classList.toggle('desktop-mode', settings?.windowBehavior === 'desktop');
   els.shell.classList.toggle('title-icon-only', settings?.titleIconOnly === true);
@@ -1617,6 +1629,209 @@ function applyAppearanceSettings(settings) {
   document.documentElement.classList.toggle('is-mac-legacy', isMacLegacyRadius);
   document.body.classList.toggle('is-mac-legacy', isMacLegacyRadius);
   updateTitleFit();
+}
+
+const themePresetsApi = window.TokenMonitorThemePresets;
+// Snapshot of the canonical brand colours, taken before any override is
+// applied. clientColors is mutated in place (other modules hold the same
+// reference), so this is the source of truth for "reset to brand".
+const BRAND_VENDOR_COLORS = { ...clientColors };
+
+function appearanceSummary() {
+  const theme = themePresetsApi.normalizeOverrides(state.settings?.themeColors, themePresetsApi.INTERFACE_COLOR_KEYS);
+  const vendor = themePresetsApi.normalizeOverrides(state.settings?.vendorColors, Object.keys(BRAND_VENDOR_COLORS));
+  const presetId = matchingThemePresetId(theme);
+  const presetLabel = presetId ? t(`settings.appearance.preset.${presetId}`) : t('settings.appearance.custom');
+  const customVendors = Object.keys(vendor).length;
+  if (customVendors > 0) {
+    return t('settings.summary.appearance', { theme: presetLabel, vendors: customVendors });
+  }
+  return presetLabel;
+}
+
+// Returns the preset id whose colours exactly match the resolved palette, or
+// null when the palette is a custom mix.
+function matchingThemePresetId(overrides) {
+  const resolved = themePresetsApi.mergeThemeColors(overrides);
+  for (const preset of themePresetsApi.THEME_PRESETS) {
+    if (themePresetsApi.INTERFACE_COLOR_KEYS.every((k) => resolved[k] === preset.colors[k])) return preset.id;
+  }
+  return null;
+}
+
+function applyThemeColors(overrides) {
+  const root = document.documentElement.style;
+  for (const { name, value } of themePresetsApi.themeCssVarEntries(overrides)) {
+    if (value) root.setProperty(name, value);
+    else root.removeProperty(name);
+  }
+}
+
+function applyVendorColorOverrides(overrides) {
+  const merged = themePresetsApi.mergeVendorColors(BRAND_VENDOR_COLORS, overrides);
+  for (const key of Object.keys(BRAND_VENDOR_COLORS)) clientColors[key] = merged[key];
+}
+
+// Current resolved palette value for an interface colour key.
+function resolvedThemeColor(key) {
+  const clean = themePresetsApi.normalizeOverrides(state.settings?.themeColors, themePresetsApi.INTERFACE_COLOR_KEYS);
+  return clean[key] || themePresetsApi.DEFAULT_THEME[key];
+}
+
+function buildAppearanceColorControls() {
+  renderThemePresetChips();
+  renderThemeColorGrid();
+  renderVendorColorList();
+}
+
+function renderThemePresetChips() {
+  if (!els.themePresetChips) return;
+  const activeId = matchingThemePresetId(state.settings?.themeColors);
+  els.themePresetChips.innerHTML = '';
+  for (const preset of themePresetsApi.THEME_PRESETS) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'theme-preset-chip';
+    chip.classList.toggle('active', preset.id === activeId);
+    chip.dataset.presetId = preset.id;
+    const dot = document.createElement('span');
+    dot.className = 'theme-preset-dot';
+    dot.style.background = preset.colors.accent;
+    const label = document.createElement('span');
+    label.textContent = t(`settings.appearance.preset.${preset.id}`);
+    chip.append(dot, label);
+    chip.addEventListener('click', () => selectThemePreset(preset.id));
+    els.themePresetChips.appendChild(chip);
+  }
+}
+
+function renderThemeColorGrid() {
+  if (!els.themeColorGrid) return;
+  els.themeColorGrid.innerHTML = '';
+  for (const key of themePresetsApi.INTERFACE_COLOR_KEYS) {
+    const row = document.createElement('label');
+    row.className = 'color-picker-row';
+    const name = document.createElement('span');
+    name.className = 'color-picker-name';
+    name.textContent = t(`settings.appearance.color.${key}`);
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.className = 'color-picker-input';
+    input.value = resolvedThemeColor(key);
+    input.dataset.themeKey = key;
+    input.addEventListener('input', () => previewThemeColor(key, input.value));
+    input.addEventListener('change', () => saveThemeColor(key, input.value));
+    const reset = document.createElement('button');
+    reset.type = 'button';
+    reset.className = 'reset-appearance-button reset-inline';
+    reset.textContent = '↺';
+    reset.title = t('settings.appearance.resetColor');
+    reset.addEventListener('click', () => resetThemeColor(key));
+    row.append(name, input, reset);
+    els.themeColorGrid.appendChild(row);
+  }
+}
+
+function renderVendorColorList() {
+  if (!els.vendorColorList) return;
+  const overrides = themePresetsApi.normalizeOverrides(state.settings?.vendorColors, Object.keys(BRAND_VENDOR_COLORS));
+  els.vendorColorList.innerHTML = '';
+  for (const id of themePresetsApi.orderedVendorIds(BRAND_VENDOR_COLORS)) {
+    const row = document.createElement('label');
+    row.className = 'vendor-color-row';
+    const name = document.createElement('span');
+    name.className = 'vendor-color-name';
+    name.textContent = id === 'default' ? t('settings.appearance.vendorDefault') : themePresetsApi.vendorLabel(id);
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.className = 'color-picker-input';
+    input.value = overrides[id] || BRAND_VENDOR_COLORS[id];
+    input.dataset.vendorId = id;
+    input.addEventListener('input', () => previewVendorColor(id, input.value));
+    input.addEventListener('change', () => saveVendorColor(id, input.value));
+    const reset = document.createElement('button');
+    reset.type = 'button';
+    reset.className = 'reset-appearance-button reset-inline';
+    reset.textContent = '↺';
+    reset.title = t('settings.appearance.resetBrand');
+    reset.addEventListener('click', () => resetVendorColor(id));
+    row.append(name, input, reset);
+    els.vendorColorList.appendChild(row);
+  }
+}
+
+function currentThemeOverrides() {
+  return themePresetsApi.normalizeOverrides(state.settings?.themeColors, themePresetsApi.INTERFACE_COLOR_KEYS);
+}
+
+function currentVendorOverrides() {
+  return themePresetsApi.normalizeOverrides(state.settings?.vendorColors, Object.keys(BRAND_VENDOR_COLORS));
+}
+
+function previewThemeColor(key, value) {
+  if (!themePresetsApi.isValidHex(value)) return;
+  const next = { ...currentThemeOverrides(), [key]: themePresetsApi.normalizeHex(value) };
+  applyThemeColors(next);
+}
+
+async function saveThemeColor(key, value) {
+  if (!themePresetsApi.isValidHex(value)) return;
+  const next = { ...currentThemeOverrides(), [key]: themePresetsApi.normalizeHex(value) };
+  await commitThemeColors(next);
+}
+
+async function resetThemeColor(key) {
+  const next = { ...currentThemeOverrides() };
+  delete next[key];
+  await commitThemeColors(next);
+}
+
+async function selectThemePreset(presetId) {
+  const preset = themePresetsApi.THEME_PRESETS.find((p) => p.id === presetId);
+  if (!preset) return;
+  // Store only the keys that differ from the built-in default, so the palette
+  // tracks default changes for untouched colours.
+  const next = {};
+  for (const key of themePresetsApi.INTERFACE_COLOR_KEYS) {
+    if (preset.colors[key] !== themePresetsApi.DEFAULT_THEME[key]) next[key] = preset.colors[key];
+  }
+  await commitThemeColors(next);
+}
+
+async function commitThemeColors(overrides) {
+  state.settings.themeColors = overrides;
+  applyThemeColors(overrides);
+  buildAppearanceColorControls();
+  renderSettingsSummaries();
+  await saveSettings({ themeColors: overrides });
+}
+
+function previewVendorColor(id, value) {
+  if (!themePresetsApi.isValidHex(value)) return;
+  const next = { ...currentVendorOverrides(), [id]: themePresetsApi.normalizeHex(value) };
+  applyVendorColorOverrides(next);
+  render();
+}
+
+async function saveVendorColor(id, value) {
+  if (!themePresetsApi.isValidHex(value)) return;
+  const next = { ...currentVendorOverrides(), [id]: themePresetsApi.normalizeHex(value) };
+  await commitVendorColors(next);
+}
+
+async function resetVendorColor(id) {
+  const next = { ...currentVendorOverrides() };
+  delete next[id];
+  await commitVendorColors(next);
+}
+
+async function commitVendorColors(overrides) {
+  state.settings.vendorColors = overrides;
+  applyVendorColorOverrides(overrides);
+  render();
+  buildAppearanceColorControls();
+  renderSettingsSummaries();
+  await saveSettings({ vendorColors: overrides });
 }
 
 function currentWindowBehavior(source = state.settings) {
@@ -2093,7 +2308,9 @@ function syncSettingsForm() {
   renderLimitProviderCheckboxes();
   renderSettingsSummaries();
   renderOpencodeStatus();
+  applyVendorColorOverrides(state.settings.vendorColors);
   applyAppearanceSettings(state.settings);
+  buildAppearanceColorControls();
   renderTokscaleStatus();
   renderSettingsAppUpdateRow();
   renderCursorStatus();
@@ -2999,6 +3216,8 @@ els.resetDepthButton.addEventListener('click', async () => {
 els.glassInput.addEventListener('input', applyAppearanceFromControls);
 els.blurInput.addEventListener('input', applyAppearanceFromControls);
 els.zoomInput.addEventListener('input', applyAppearanceFromControls);
+els.resetThemeColorsButton?.addEventListener('click', () => commitThemeColors({}));
+els.resetVendorColorsButton?.addEventListener('click', () => commitVendorColors({}));
 els.systemGlassInput.addEventListener('change', saveAppearanceFromControls);
 els.liveDotInput.addEventListener('change', saveAppearanceFromControls);
 els.toolIconsInput.addEventListener('change', saveAppearanceFromControls);

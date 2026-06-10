@@ -132,6 +132,8 @@ function defaultSettings() {
     showLiveDot: true,
     showToolIcons: true,
     titleIconOnly: false,
+    themeColors: {},
+    vendorColors: {},
     floatingBubbleEnabled: false,
     floatingBubbleTrigger: 'click',
     floatingBubbleContent: 'icon',

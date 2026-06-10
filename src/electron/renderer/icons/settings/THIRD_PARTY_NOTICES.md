@@ -8,6 +8,7 @@ Sources:
   - limits.svg: gauge
   - accounts.svg: users-round
   - sync.svg: cloud-sync
+  - appearance.svg: palette
 - Tabler Icons: https://github.com/tabler/tabler-icons
   - window.svg: app-window
 

@@ -117,16 +117,6 @@
                 </select>
               </label>
             </div>
-            <div class="settings-subgroup settings-appearance-group">
-              <div class="settings-group-header"><span data-i18n="settings.appearance.title">Appearance</span></div>
-              <label class="checkbox-label"><input id="systemGlassInput" type="checkbox" /><span data-i18n="settings.appearance.systemGlass">System Glass</span></label>
-              <label class="checkbox-label"><input id="liveDotInput" type="checkbox" /><span data-i18n="settings.appearance.liveIndicator">Live Indicator</span></label>
-              <label class="checkbox-label"><input id="toolIconsInput" type="checkbox" /><span data-i18n="settings.appearance.toolIcons">Tool Icons</span></label>
-              <label class="checkbox-label"><input id="titleIconInput" type="checkbox" /><span data-i18n="settings.appearance.titleIcon">Use Title Icon</span></label>
-              <label><span class="slider-label"><span data-i18n="settings.appearance.glass">Glass</span><button id="resetGlassButton" type="button" class="reset-appearance-button reset-inline" title="Reset glass" data-i18n-title="settings.appearance.resetGlass">↺</button></span><input id="glassInput" type="range" min="0" max="100" step="1" /></label>
-              <label><span class="slider-label"><span data-i18n="settings.appearance.depth">Depth</span><button id="resetDepthButton" type="button" class="reset-appearance-button reset-inline" title="Reset depth" data-i18n-title="settings.appearance.resetDepth">↺</button></span><input id="blurInput" type="range" min="0" max="100" step="1" /></label>
-              <label><span class="slider-label"><span data-i18n="settings.appearance.zoom">Zoom</span><button id="resetZoomButton" type="button" class="reset-appearance-button reset-inline" title="Reset zoom" data-i18n-title="settings.appearance.resetZoom">↺</button></span><input id="zoomInput" type="range" min="70" max="160" step="5" /></label>
-            </div>
           </div>
         </div>
 
@@ -205,6 +195,44 @@
                   </label>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group settings-collapsible-group settings-appearance-section-group">
+          <button class="settings-section-toggle" type="button" data-settings-section="appearance" aria-expanded="false" aria-controls="appearanceSettingsDetails">
+            <span class="settings-section-heading"><span class="settings-section-icon settings-section-icon-appearance" aria-hidden="true"></span><span data-i18n="settings.appearance.title">Appearance</span></span>
+            <span class="settings-section-meta"><span id="appearanceSettingsSummary" class="settings-section-summary"></span><span class="settings-section-disclosure" aria-hidden="true"></span></span>
+          </button>
+          <div id="appearanceSettingsDetails" class="settings-section-details hidden">
+            <div class="settings-subgroup settings-appearance-group">
+              <label class="checkbox-label"><input id="systemGlassInput" type="checkbox" /><span data-i18n="settings.appearance.systemGlass">System Glass</span></label>
+              <label class="checkbox-label"><input id="liveDotInput" type="checkbox" /><span data-i18n="settings.appearance.liveIndicator">Live Indicator</span></label>
+              <label class="checkbox-label"><input id="toolIconsInput" type="checkbox" /><span data-i18n="settings.appearance.toolIcons">Tool Icons</span></label>
+              <label class="checkbox-label"><input id="titleIconInput" type="checkbox" /><span data-i18n="settings.appearance.titleIcon">Use Title Icon</span></label>
+              <label><span class="slider-label"><span data-i18n="settings.appearance.glass">Glass</span><button id="resetGlassButton" type="button" class="reset-appearance-button reset-inline" title="Reset glass" data-i18n-title="settings.appearance.resetGlass">↺</button></span><input id="glassInput" type="range" min="0" max="100" step="1" /></label>
+              <label><span class="slider-label"><span data-i18n="settings.appearance.depth">Depth</span><button id="resetDepthButton" type="button" class="reset-appearance-button reset-inline" title="Reset depth" data-i18n-title="settings.appearance.resetDepth">↺</button></span><input id="blurInput" type="range" min="0" max="100" step="1" /></label>
+              <label><span class="slider-label"><span data-i18n="settings.appearance.zoom">Zoom</span><button id="resetZoomButton" type="button" class="reset-appearance-button reset-inline" title="Reset zoom" data-i18n-title="settings.appearance.resetZoom">↺</button></span><input id="zoomInput" type="range" min="70" max="160" step="5" /></label>
+            </div>
+            <div class="settings-subgroup settings-theme-group">
+              <div class="settings-note-row">
+                <div class="settings-group-header"><span data-i18n="settings.appearance.themeTitle">Interface Theme</span></div>
+                <div class="tool-header-actions">
+                  <button id="resetThemeColorsButton" class="tool-header-action" type="button" title="Reset all" aria-label="Reset all" data-i18n-title="settings.appearance.resetAll" data-i18n-aria-label="settings.appearance.resetAll"><span aria-hidden="true">↺</span></button>
+                </div>
+              </div>
+              <div id="themePresetChips" class="theme-preset-chips"></div>
+              <div id="themeColorGrid" class="color-picker-grid"></div>
+            </div>
+            <div class="settings-subgroup settings-vendor-color-group">
+              <div class="settings-note-row">
+                <div class="settings-group-header"><span data-i18n="settings.appearance.vendorTitle">Vendor Colors</span></div>
+                <div class="tool-header-actions">
+                  <button id="resetVendorColorsButton" class="tool-header-action" type="button" title="Reset to brand" aria-label="Reset to brand" data-i18n-title="settings.appearance.resetBrand" data-i18n-aria-label="settings.appearance.resetBrand"><span aria-hidden="true">↺</span></button>
+                </div>
+              </div>
+              <p class="settings-note" data-i18n="settings.appearance.vendorNote">Override the chart and list colour for each tool. Reset returns it to the brand colour.</p>
+              <div id="vendorColorList" class="vendor-color-list"></div>
             </div>
           </div>
         </div>
@@ -413,6 +441,7 @@
     </button>
     <script src="trayBars.js"></script>
     <script src="usageCharts.js"></script>
+    <script src="themePresets.js"></script>
     <script src="trayProviderIcons.js"></script>
     <script src="limitProviderOrder.js"></script>
     <script src="limitProviderPresentation.js"></script>

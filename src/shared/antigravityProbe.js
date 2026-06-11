@@ -40,6 +40,25 @@ function isAntigravityCommand(lowerCommand) {
   return false;
 }
 
+// The Antigravity CLI (`agy` / `antigravity-cli`) hosts the same local language
+// server as the IDE, but launches it without a `--csrf_token` flag and under a
+// different process name. Path-anchor the match so unrelated binaries/arguments
+// (e.g. `/opt/imagytool/...`, `legacy-agent`) do not match.
+function isAntigravityCliCommand(lowerCommand) {
+  if (/(^|[/\\])(antigravity-cli|antigravity_cli)([\s/\\]|$)/.test(lowerCommand)) return true;
+  if (/(^|[/\\])agy(\.exe)?(\s|$)/.test(lowerCommand)) return true;
+  return false;
+}
+
+// Classify a process command line as the Antigravity IDE language server, the
+// Antigravity CLI language server, or neither. IDE takes precedence so its
+// CSRF-token requirement is preserved.
+function antigravityProcessKind(lowerCommand) {
+  if (isLanguageServerCommand(lowerCommand) && isAntigravityCommand(lowerCommand)) return 'ide';
+  if (isAntigravityCliCommand(lowerCommand)) return 'cli';
+  return null;
+}
+
 function extractFlag(flag, command) {
   const escaped = flag.replace(/[-\\^$*+?.()|[\]{}]/g, '\\$&');
   const re = new RegExp(`${escaped}[=\\s]+([^\\s]+)`, 'i');
@@ -64,12 +83,17 @@ function parseProcessLine(line) {
   const command = trimmed.slice(split + 1).trim();
   if (!command) return null;
   const lower = command.toLowerCase();
-  if (!isLanguageServerCommand(lower) || !isAntigravityCommand(lower)) return null;
+  const kind = antigravityProcessKind(lower);
+  if (!kind) return null;
   const csrfToken = extractFlag('--csrf_token', command);
-  if (!csrfToken) return null;
+  // The IDE language server authenticates local requests with `--csrf_token` and
+  // must keep requiring it (a tokenless IDE match is skipped so a later valid one
+  // can be found). The CLI's language server exposes no token flag and needs none.
+  if (kind === 'ide' && !csrfToken) return null;
   return {
     pid,
-    csrfToken,
+    kind,
+    csrfToken: csrfToken || '',
     extensionPort: extractPortFlag('--extension_server_port', command),
     extensionCsrfToken: extractFlag('--extension_server_csrf_token', command),
     commandLine: command
@@ -118,7 +142,10 @@ async function detectProcessInfoPosix(deps = {}) {
 }
 
 async function detectProcessInfoWin32(deps = {}) {
-  const script = `Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'language_server*' } | ForEach-Object { "$($_.ProcessId) $($_.CommandLine)" }`;
+  // Surface both the IDE language server and the CLI (`agy` / `antigravity-cli`)
+  // hosts; the command-line classifier (antigravityProcessKind) re-filters for
+  // precision, so a broad Name filter here is safe.
+  const script = `Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'language_server*' -or $_.Name -like 'agy*' -or $_.Name -like 'antigravity*' } | ForEach-Object { "$($_.ProcessId) $($_.CommandLine)" }`;
   const stdout = await runProcessText('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], { deps, timeoutMs: 10000 });
   let sawAntigravityWithoutCsrf = false;
   for (const rawLine of stdout.split(/\r?\n/)) {
@@ -347,6 +374,8 @@ module.exports = {
   listeningPorts,
   callLs,
   _parseProcessLine: parseProcessLine,
+  _antigravityProcessKind: antigravityProcessKind,
+  _isAntigravityCliCommand: isAntigravityCliCommand,
   _extractFlag: extractFlag,
   _errorWithStatus: errorWithStatus,
   _modelsFromConfigs: modelsFromConfigs,

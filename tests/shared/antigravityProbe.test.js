@@ -32,6 +32,38 @@ test('parseProcessLine matches language_server.exe on win32 cmdlines', () => {
   const info = probe._parseProcessLine(line);
   assert.equal(info.pid, 7777);
   assert.equal(info.csrfToken, 'abc-123');
+  assert.equal(info.kind, 'ide');
+});
+
+test('parseProcessLine tags the IDE language server as kind=ide', () => {
+  const line = '53602 /Applications/Antigravity.app/Contents/Resources/bin/language_server --override_ide_name antigravity --csrf_token abc --app_data_dir antigravity';
+  assert.equal(probe._parseProcessLine(line).kind, 'ide');
+});
+
+test('parseProcessLine matches the agy CLI without a csrf token (kind=cli)', () => {
+  const line = '60123 /Users/javis/.antigravity/bin/agy language-server --stdio';
+  const info = probe._parseProcessLine(line);
+  assert.equal(info.pid, 60123);
+  assert.equal(info.kind, 'cli');
+  assert.equal(info.csrfToken, '');
+});
+
+test('parseProcessLine matches the antigravity-cli language server path (kind=cli)', () => {
+  const line = '60124 /opt/antigravity-cli/resources/language_server_macos --standalone';
+  const info = probe._parseProcessLine(line);
+  assert.equal(info.kind, 'cli');
+  assert.equal(info.csrfToken, '');
+});
+
+test('parseProcessLine matches agy.exe on win32 cmdlines', () => {
+  const info = probe._parseProcessLine('9001 C:\\Users\\j\\.antigravity\\agy.exe language-server');
+  assert.equal(info.pid, 9001);
+  assert.equal(info.kind, 'cli');
+});
+
+test('parseProcessLine does not match agy embedded in an unrelated path', () => {
+  assert.equal(probe._parseProcessLine('700 /opt/imagytool/bin/run --serve'), null);
+  assert.equal(probe._parseProcessLine('701 /usr/local/bin/legacy-agent start'), null);
 });
 
 function fakeSpawn(stdout, { exitCode = 0, stderr = '' } = {}) {
@@ -74,11 +106,30 @@ test('detectProcessInfo (posix) throws unavailable when LS present but no csrf',
   assert.equal(err.status, 'unavailable');
 });
 
+test('detectProcessInfo (posix) returns the agy CLI language server with an empty token', async () => {
+  const stdout = [
+    '111 /bin/bash --login',
+    '60123 /Users/javis/.antigravity/bin/agy language-server --stdio'
+  ].join('\n');
+  const info = await probe.detectProcessInfo({ platform: 'darwin', spawn: fakeSpawn(stdout) });
+  assert.equal(info.pid, 60123);
+  assert.equal(info.kind, 'cli');
+  assert.equal(info.csrfToken, '');
+});
+
 test('detectProcessInfo (win32) parses PowerShell output', async () => {
   const stdout = '7777 C:\\Program Files\\Antigravity\\language_server.exe --app_data_dir antigravity --csrf_token win-token\n';
   const info = await probe.detectProcessInfo({ platform: 'win32', spawn: fakeSpawn(stdout) });
   assert.equal(info.pid, 7777);
   assert.equal(info.csrfToken, 'win-token');
+});
+
+test('detectProcessInfo (win32) finds the agy.exe CLI when no IDE LS is running', async () => {
+  const stdout = '9001 C:\\Users\\j\\.antigravity\\agy.exe language-server\n';
+  const info = await probe.detectProcessInfo({ platform: 'win32', spawn: fakeSpawn(stdout) });
+  assert.equal(info.pid, 9001);
+  assert.equal(info.kind, 'cli');
+  assert.equal(info.csrfToken, '');
 });
 
 test('listeningPorts (posix) extracts ports from lsof output', async () => {

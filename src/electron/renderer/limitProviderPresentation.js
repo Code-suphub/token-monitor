@@ -33,9 +33,16 @@
     claude: ['Auto', 'OAuth/CLI'],
     codex: ['Auto', 'App/CLI RPC'],
     cursor: ['Manual login', 'Web'],
-    antigravity: ['App must be open', 'RPC'],
+    antigravity: ['App/CLI must be open', 'RPC'],
     opencode: ['Local/Web', 'Manual login'],
     deepseek: ['Pay-as-you-go', 'API key']
+  };
+
+  // Capability hint -> the status label it would duplicate. When that status is
+  // active, the hint is suppressed so the row doesn't show two tags saying the
+  // same thing (see limitProviderSettingsTags).
+  const CAPABILITY_STATUS_DUPLICATES = {
+    'App/CLI must be open': 'Open app or CLI'
   };
 
   function normalizeId(value) {
@@ -106,7 +113,7 @@
     if (status === 'sourceRateLimited') return { label: 'Usage API limited', tone: 'warn' };
     if (status === 'unavailable') return { label: 'Unavailable', tone: 'warn' };
     if (status === 'notConfigured') {
-      if (providerName === 'antigravity') return { label: 'Open app', tone: 'setup' };
+      if (providerName === 'antigravity') return { label: 'Open app or CLI', tone: 'setup' };
       if (providerName === 'cursor') return { label: 'Sign in', tone: 'setup' };
       if (providerName === 'deepseek') return { label: 'Add API key', tone: 'setup' };
       return { label: 'Not set up', tone: 'setup' };
@@ -195,7 +202,12 @@
       tags.push(...limitProviderProvenanceTags(provenance));
       return tags;
     }
+    // Some capability hints restate the active setup status (e.g. antigravity's
+    // "App/CLI must be open" vs the notConfigured "Open app or CLI"). Drop the
+    // hint when it would duplicate the status tag already shown.
+    const statusLabel = status?.label;
     for (const label of limitProviderCapabilityTags(provider)) {
+      if (CAPABILITY_STATUS_DUPLICATES[label] === statusLabel) continue;
       tags.push({ label, kind: 'capability' });
     }
     return tags;

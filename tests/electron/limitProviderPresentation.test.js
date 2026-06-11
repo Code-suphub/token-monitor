@@ -30,16 +30,24 @@ test('capability tags explain how each provider is collected in settings', () =>
   assert.deepEqual(limitProviderCapabilityTags('claude'), ['Auto', 'OAuth/CLI']);
   assert.deepEqual(limitProviderCapabilityTags('codex'), ['Auto', 'App/CLI RPC']);
   assert.deepEqual(limitProviderCapabilityTags('cursor'), ['Manual login', 'Web']);
-  assert.deepEqual(limitProviderCapabilityTags('antigravity'), ['App must be open', 'RPC']);
+  assert.deepEqual(limitProviderCapabilityTags('antigravity'), ['App/CLI must be open', 'RPC']);
   assert.deepEqual(limitProviderCapabilityTags('opencode'), ['Local/Web', 'Manual login']);
   assert.deepEqual(limitProviderCapabilityTags('unknown'), []);
 });
 
 test('undetected settings tags include status and supported collection hints', () => {
+  // Antigravity's "App/CLI must be open" capability restates the notConfigured
+  // status ("Open app or CLI"), so it is dropped to avoid a duplicate tag.
   assert.deepEqual(
     limitProviderSettingsTags({ provider: 'antigravity', status: 'notConfigured', source: 'rpc' })
       .map((tag) => tag.label),
-    ['Open app', 'App must be open', 'RPC']
+    ['Open app or CLI', 'RPC']
+  );
+  // Other failure states don't say "Open app or CLI", so the hint stays useful.
+  assert.deepEqual(
+    limitProviderSettingsTags({ provider: 'antigravity', status: 'unavailable', source: 'rpc' })
+      .map((tag) => tag.label),
+    ['Unavailable', 'App/CLI must be open', 'RPC']
   );
   assert.deepEqual(
     limitProviderSettingsTags({ provider: 'cursor', status: 'notConfigured', source: 'web' })

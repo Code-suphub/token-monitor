@@ -366,9 +366,8 @@ async function collectUsageOnce(options) {
       month = applyPeriodDelta(anchor.month, today, anchor.today);
       allTime = applyPeriodDelta(anchor.allTime, today, anchor.today);
     } else {
-      // Serial on purpose: concurrent scans triple the peak fd/CPU load, and on
-      // macOS the simultaneous Gatekeeper assessments of the ad-hoc-signed binary
-      // can exhaust syspolicyd's fds and break spctl system-wide (issue #15).
+      // Serial on purpose: concurrent scans triple the peak CPU/IO load, which
+      // is what let the issue #15 self-trigger loop spike tokscale past 500% CPU.
       const todayJson = await runTokscale({ clients: normalizedClients, flags: ['--today'], commandTimeoutMs });
       const monthJson = await runTokscale({ clients: normalizedClients, flags: ['--month'], commandTimeoutMs });
       const allTimeJson = await runTokscale({ clients: normalizedClients, flags: ['--since', allTimeSince], commandTimeoutMs });

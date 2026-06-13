@@ -4,11 +4,14 @@
 
 ## What's changed
 
-### Fixed
-- Fixed a collector self-trigger loop: the file watcher monitored cache directories written by the collector's own Cursor / Antigravity sync, so collection kept re-triggering even while idle, spiking tokscale CPU to several hundred percent. Usage scans now run serially, and the syncs are skipped when unused and limited to once per 5 minutes. ([#15](https://github.com/Javis603/token-monitor/issues/15))
+### Added
+- Usage tracking for GitHub Copilot CLI, Kimi, Qwen, and Grok.
 
 ### Improved
-- Watch-triggered refreshes now run a single `--today` scan and derive the MONTH / TOTAL figures exactly from the last full scan, cutting per-refresh load to a third during active coding while keeping the 3-5 s update latency. ([#15](https://github.com/Javis603/token-monitor/issues/15))
+- On Windows, Claude Code limits now read the OAuth token from Windows Credential Manager, so limits show up on more Windows setups.
+
+### Fixed
+- Codex limits stay Live when a quota window is exhausted, instead of dropping out.
 
 ## Which file should I download?
 
@@ -42,11 +45,14 @@ open-source: https://github.com/junhoyeo/tokscale
 
 ## 更新内容
 
-### 修复
-- 修复采集器自激循环：watcher 监听了 Cursor / Antigravity sync 自己写入的缓存目录，导致即使机器空闲也会不停重复采集，tokscale 进程 CPU 峰值可达数百个百分点。用量扫描现在改为串行执行，sync 未使用时跳过，并限制为每 5 分钟最多一次。([#15](https://github.com/Javis603/token-monitor/issues/15))
+### 新增
+- 新增 GitHub Copilot CLI、Kimi、Qwen、Grok 用量追踪。
 
 ### 改进
-- watch 触发的刷新现在只跑一次 `--today` 扫描，MONTH / TOTAL 数字用上一次全量扫描精确推导，活跃使用期间单次刷新负载降到原来的三分之一，更新延迟保持 3-5 秒。([#15](https://github.com/Javis603/token-monitor/issues/15))
+- Windows 上的 Claude Code 限额现在会从 Windows 凭据管理器读取 OAuth token，更多 Windows 环境都能显示限额。
+
+### 修复
+- Codex 限额在配额窗口耗尽后保持 Live 状态，不再消失。
 
 ## 应该下载哪个文件？
 

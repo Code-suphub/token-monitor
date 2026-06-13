@@ -122,3 +122,33 @@ test('Codex provider preserves source detail for renderer labels', () => {
   assert.equal(provider.source, 'rpc');
   assert.equal(provider.sourceDetail, 'app');
 });
+
+test('Codex exhausted quota remains a live provider with zero remaining window', () => {
+  const provider = mapCodexRateLimitsToProvider({
+    account: { planType: 'plus' },
+    rateLimits: {
+      rateLimitReachedType: 'primary',
+      primary: {
+        usedPercent: 100,
+        resetsAt: '2026-06-01T05:00:00Z',
+        windowDurationMins: 300
+      },
+      secondary: {
+        usedPercent: 39,
+        resetsAt: '2026-06-06T00:00:00Z',
+        windowDurationMins: 10080
+      }
+    }
+  }, {
+    source: 'rpc',
+    sourceDetail: 'app',
+    updatedAt: '2026-06-01T00:00:00Z'
+  });
+
+  assert.equal(provider.status, 'ok');
+  assert.equal(provider.accountLabel, 'Plus');
+  assert.equal(provider.windows[0].kind, 'session');
+  assert.equal(provider.windows[0].remainingPercent, 0);
+  assert.equal(provider.windows[1].kind, 'weekly');
+  assert.equal(provider.windows[1].remainingPercent, 61);
+});

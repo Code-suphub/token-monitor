@@ -1143,7 +1143,7 @@ function mapCodexRateLimitsToProvider(payload, meta = {}) {
     accountLabel: meta.accountLabel || codexAccountLabel(payload),
     source: meta.source || 'rpc',
     sourceDetail: meta.sourceDetail || payload.sourceDetail,
-    status: rateLimits.rateLimitReachedType ? 'rateLimited' : 'ok',
+    status: 'ok',
     updatedAt: meta.updatedAt,
     windows
   });

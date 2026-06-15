@@ -138,6 +138,12 @@ function runTokscaleGraph({ clients, commandTimeoutMs }) {
   return spawnTokscaleJson(['graph', '--client', clients, '--no-spinner'], commandTimeoutMs);
 }
 
+function lookupModelPricing(modelId, commandTimeoutMs = 15000) {
+  const id = String(modelId || '').trim();
+  if (!id) return Promise.reject(new Error('lookupModelPricing: modelId is required'));
+  return spawnTokscaleJson(['pricing', id, '--json', '--no-spinner'], commandTimeoutMs);
+}
+
 function localTodayKey(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -638,6 +644,7 @@ module.exports = {
   localTodayKey,
   sessionTimestampMap,
   locateBundledBinary,
+  lookupModelPricing,
   readDownloadedPointer,
   resolvePlatformBinary,
   shouldIncludeHistory,

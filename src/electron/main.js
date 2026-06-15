@@ -8,7 +8,9 @@ const { app, BrowserWindow, globalShortcut, ipcMain, nativeImage, screen, sessio
 const { defaultDeviceId, generateHubSecret, lanIpv4Addresses, loadDotEnv, pidFilePath, sharedDataDir } = require('../shared/config');
 const { appVersion } = require('../shared/appVersion');
 const { DEFAULT_CLIENTS, clientsCsvForSetting } = require('../shared/clientTracking');
-const { startCollector } = require('../shared/collector');
+const { startCollector, lookupModelPricing } = require('../shared/collector');
+const { customPricingPath } = require('../shared/tokscaleConfig');
+const { applyCustomPricing, normalizeCustomPricingSetting } = require('../shared/tokscaleCustomPricing');
 const { createHub } = require('../hub/server');
 const { deepseekToken, normalizeLimitsRefreshMs, parseBoolean, parseLimitProviders, runCodexLogin } = require('../shared/limitCollector');
 const { codexAuthIdentity, hashAccountKey } = require('../shared/codexAuth');
@@ -165,6 +167,7 @@ function defaultSettings() {
     serviceStatusRefreshMs: 60000,
     archivedClientUsage: { version: 1, clients: {} },
     allTimeSince: process.env.TOKEN_MONITOR_ALL_TIME_SINCE || '2024-01-01',
+    customModelPricing: [],
     limitsEnabled: parseBoolean(process.env.TOKEN_MONITOR_LIMITS_ENABLED, true),
     limitProviders: parseLimitProviders(process.env.TOKEN_MONITOR_LIMIT_PROVIDERS).join(','),
     limitProviderOrder: defaultLimitProviderOrder(),
@@ -1535,6 +1538,33 @@ async function fetchStats(options = {}) {
   return injectLocalClientStatus(await response.json());
 }
 
+function managedPricingSidecarPath() {
+  return path.join(app.getPath('userData'), 'tokscale-managed-pricing.json');
+}
+
+function regenerateTokscalePricing() {
+  try {
+    applyCustomPricing(settings.customModelPricing || [], {
+      pricingPath: customPricingPath(),
+      sidecarPath: managedPricingSidecarPath()
+    });
+  } catch (error) {
+    console.warn(`[pricing] failed to write custom-pricing.json: ${error.message}`);
+  }
+}
+
+async function refreshAfterPricingChange() {
+  try {
+    if (mode === 'local') {
+      if (localCollectorHandle) await localCollectorHandle.tick('manual', {});
+    } else if (syncCollectorHandle && !isExternalAgentActive()) {
+      await syncCollectorHandle.tick('manual', {});
+    }
+  } catch (error) {
+    console.warn(`[pricing] refresh after pricing change failed: ${error.message}`);
+  }
+}
+
 function stripTokscaleMetadata(result) {
   if (!result || typeof result !== 'object') return result;
   const { metadata: _metadata, ...publicResult } = result;
@@ -1987,10 +2017,18 @@ app.whenReady().then(() => {
   cleanupStaleStaging().catch((error) => console.log(`[tokscale] staging cleanup failed: ${error.message}`));
   ensureTray();
   if (settings.trayMode) enterTrayMode();
+  regenerateTokscalePricing();
   startMode();
   if (settings.discordRpcEnabled) startDiscordRpc();
   setTimeout(() => { checkTokscaleNpm({ silent: true }); }, 2000);
   ipcMain.handle('settings:get', () => settingsForRenderer());
+  ipcMain.handle('pricing:lookup', async (_event, modelId) => {
+    try {
+      return { ok: true, result: await lookupModelPricing(modelId) };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  });
   ipcMain.handle('settings:update', (_event, patch) => {
     const previousNativeMaterial = nativeBlurEnabled();
     const previousHubMode = settings.hubMode;
@@ -2011,9 +2049,11 @@ app.whenReady().then(() => {
     const previousTrayContent = settings.trayContent;
     const previousCurrency = settings.currency;
     const previousStartAtLogin = settings.startAtLogin;
+    const previousCustomModelPricing = JSON.stringify(settings.customModelPricing || []);
     const normalizedCurrency = patch.currency !== undefined ? normalizeCurrency(patch.currency, settings.currency) : normalizeCurrency(settings.currency);
     const normalizedPatch = { ...patch, currency: normalizedCurrency };
     delete normalizedPatch.codexManagedAccounts;
+    delete normalizedPatch.customModelPricing;
     if (patch.clients !== undefined) normalizedPatch.clients = clientsCsvForSetting(patch.clients, '');
     if (patch.deepseekApiKey !== undefined) normalizedPatch.deepseekApiKey = normalizeDeepSeekApiKey(patch.deepseekApiKey);
     settings = normalizeWindowBehaviorSettings({
@@ -2059,12 +2099,19 @@ app.whenReady().then(() => {
       currency: normalizedCurrency,
       language: patch.language !== undefined ? normalizeLanguageSetting(patch.language, settings.language) : normalizeLanguageSetting(settings.language),
       startAtLogin: loginItemEnabledHere() ? parseBoolean(patch.startAtLogin ?? settings.startAtLogin, false) : false,
-      deepseekApiKey: patch.deepseekApiKey !== undefined ? normalizeDeepSeekApiKey(patch.deepseekApiKey) : (settings.deepseekApiKey || '')
+      deepseekApiKey: patch.deepseekApiKey !== undefined ? normalizeDeepSeekApiKey(patch.deepseekApiKey) : (settings.deepseekApiKey || ''),
+      customModelPricing: patch.customModelPricing !== undefined
+        ? normalizeCustomPricingSetting(patch.customModelPricing)
+        : normalizeCustomPricingSetting(settings.customModelPricing)
     }, normalizedPatch);
     settings.archivedClientUsage = normalizeArchivedClientUsage(settings.archivedClientUsage);
     if (settings.clients !== previousClients) updateArchivedClientUsage(previousClients, settings.clients);
     delete settings.edgeDrawerEnabled;
     saveSettings();
+    if (JSON.stringify(settings.customModelPricing || []) !== previousCustomModelPricing) {
+      regenerateTokscalePricing();
+      refreshAfterPricingChange();
+    }
     configureWindowToggleShortcut();
     if (settings.startAtLogin !== previousStartAtLogin) {
       settings.startAtLogin = applyLoginItem(settings.startAtLogin);

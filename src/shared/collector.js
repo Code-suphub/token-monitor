@@ -10,7 +10,8 @@ const { readJson, sharedDataDir } = require('./config');
 const { appVersion } = require('./appVersion');
 const { normalizeClientsCsv } = require('./clientTracking');
 const { tokscalePackageNameForPlatform, tokscalePlatformKey } = require('./tokscalePlatform');
-const { applyPeriodDelta, emptyPeriod, extractUsageFromTokscale } = require('./usage');
+const { applyPeriodDelta, emptyPeriod, extractUsageFromTokscale, mergePeriods } = require('./usage');
+const { collectWslUsage: collectWslUsageImpl, emptyWslBundle } = require('./wslUsage');
 const { parseGraphResult, normalizeHistory } = require('./history');
 const { collectLimitsOnce, createLimitsCollector } = require('./limitCollector');
 const cursorAuth = require('./cursorAuth');
@@ -355,34 +356,60 @@ function shouldIncludeHistory(nowMs, lastHistoryAtMs, historyIntervalMs, force, 
 }
 async function collectUsageOnce(options) {
   const { clients, allTimeSince, commandTimeoutMs, deviceId, agentVersion = appVersion(), agentRuntime = '' } = options;
+  const runTokscaleFn = options.runTokscale || runTokscale;
+  const collectWsl = options.collectWslUsage || collectWslUsageImpl;
   const normalizedClients = normalizeClientsCsv(clients);
   let today = emptyPeriod();
   let month = emptyPeriod();
   let allTime = emptyPeriod();
+  const anchor = options.todayOnlyAnchor;
+  const anchorUsed = Boolean(anchor && anchor.dateKey === localTodayKey());
   if (normalizedClients) {
     await maybeSyncCursor(normalizedClients, options.logger);
     await maybeSyncAntigravity(normalizedClients, options.logger, options.homeDir || os.homedir());
-    const anchor = options.todayOnlyAnchor;
-    if (anchor && anchor.dateKey === localTodayKey()) {
+    if (anchorUsed) {
       // Anchored tick (watch-triggered): every tokscale period scan costs the
       // same full load + filter, so scan only --today and update the broader
       // windows exactly via applyPeriodDelta — one spawn instead of three.
-      const todayJson = await runTokscale({ clients: normalizedClients, flags: ['--today'], commandTimeoutMs });
+      const todayJson = await runTokscaleFn({ clients: normalizedClients, flags: ['--today'], commandTimeoutMs });
       today = extractUsageFromTokscale(todayJson);
       month = applyPeriodDelta(anchor.month, today, anchor.today);
       allTime = applyPeriodDelta(anchor.allTime, today, anchor.today);
     } else {
       // Serial on purpose: concurrent scans triple the peak CPU/IO load, which
       // is what let the issue #15 self-trigger loop spike tokscale past 500% CPU.
-      const todayJson = await runTokscale({ clients: normalizedClients, flags: ['--today'], commandTimeoutMs });
-      const monthJson = await runTokscale({ clients: normalizedClients, flags: ['--month'], commandTimeoutMs });
-      const allTimeJson = await runTokscale({ clients: normalizedClients, flags: ['--since', allTimeSince], commandTimeoutMs });
+      const todayJson = await runTokscaleFn({ clients: normalizedClients, flags: ['--today'], commandTimeoutMs });
+      const monthJson = await runTokscaleFn({ clients: normalizedClients, flags: ['--month'], commandTimeoutMs });
+      const allTimeJson = await runTokscaleFn({ clients: normalizedClients, flags: ['--since', allTimeSince], commandTimeoutMs });
       today = extractUsageFromTokscale(todayJson);
       month = extractUsageFromTokscale(monthJson);
       allTime = extractUsageFromTokscale(allTimeJson);
     }
     applySessionTimestamps({ today, month, allTime }, options.homeDir || os.homedir());
   }
+
+  // WSL contribution (Windows only; no-op elsewhere). Full tick scans running WSL
+  // homes; watch tick reuses the frozen snapshot so the Windows-only delta anchor
+  // above stays exact (issue #15). Merged before deriveClientStatus so a client
+  // that only exists inside WSL still reports as active.
+  const windowsPeriods = { today, month, allTime };
+  let wslBundle = options.wslAnchor || emptyWslBundle();
+  if (normalizedClients && !anchorUsed) {
+    wslBundle = await collectWsl({
+      clients: normalizedClients,
+      allTimeSince,
+      commandTimeoutMs,
+      runTokscale: runTokscaleFn,
+      logger: options.logger
+    });
+  }
+  today = mergePeriods(windowsPeriods.today, wslBundle.today);
+  month = mergePeriods(windowsPeriods.month, wslBundle.month);
+  allTime = mergePeriods(windowsPeriods.allTime, wslBundle.allTime);
+  if (typeof options.onAnchorComputed === 'function') {
+    options.onAnchorComputed({ windowsPeriods, wslBundle });
+  }
+
   const summary = {
     deviceId,
     hostname: os.hostname(),
@@ -506,7 +533,10 @@ function startCollector(options) {
   let lastHistoryAt = 0;
   // Last full-scan snapshot; lets watch ticks scan only --today and derive
   // month/allTime exactly (applyPeriodDelta). Reset by every full tick.
+  // anchor holds Windows-only periods; wslAnchor is the WSL contribution frozen
+  // between full ticks (WSL is not scanned on watch ticks).
   let anchor = null;
+  let wslAnchor = null;
   let pendingWaiters = [];
   let debounceTimer = null;
   let intervalTimer = null;
@@ -525,6 +555,7 @@ function startCollector(options) {
     const todayKey = localTodayKey();
     const anchored = Boolean(tickOptions.todayOnly && anchor && anchor.dateKey === todayKey);
     try {
+      let captured = null;
       const summary = await collectUsageOnce({
         ...options,
         clients,
@@ -536,10 +567,15 @@ function startCollector(options) {
         limitsCollector,
         includeHistory,
         forceLimits: Boolean(tickOptions.forceLimits),
-        todayOnlyAnchor: anchored ? anchor : null
+        todayOnlyAnchor: anchored ? anchor : null,
+        wslAnchor: anchored ? wslAnchor : null,
+        onAnchorComputed: (x) => { captured = x; }
       });
       if (stopped) return;
-      if (!anchored) anchor = { dateKey: todayKey, today: summary.today, month: summary.month, allTime: summary.allTime };
+      if (!anchored && captured) {
+        anchor = { dateKey: todayKey, today: captured.windowsPeriods.today, month: captured.windowsPeriods.month, allTime: captured.windowsPeriods.allTime };
+        wslAnchor = captured.wslBundle;
+      }
       await onUpdate?.(summary, reason);
     } catch (error) {
       if (stopped) return;

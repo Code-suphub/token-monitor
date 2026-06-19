@@ -589,6 +589,55 @@ function aggregateHistory(devices, staleAfterMs, nowMs = Date.now()) {
   return mergeHistories(histories);
 }
 
+// Adds every numeric field and nested map of `source` into `target` (an
+// emptyPeriod()-shaped object). Shared by device aggregation and the WSL merge so
+// the two never diverge on which period fields exist.
+function addPeriodInto(target, source) {
+  target.totalTokens += source.totalTokens;
+  target.costUsd += source.costUsd;
+  target.cacheReadTokens += source.cacheReadTokens;
+  target.cacheWriteTokens += source.cacheWriteTokens;
+  target.outputTokens += source.outputTokens;
+  for (const [client, tokens] of Object.entries(source.clients)) {
+    target.clients[client] = (target.clients[client] || 0) + tokens;
+    if (source.clientCacheReads?.[client]) target.clientCacheReads[client] = (target.clientCacheReads[client] || 0) + source.clientCacheReads[client];
+    if (source.clientCacheWrites?.[client]) target.clientCacheWrites[client] = (target.clientCacheWrites[client] || 0) + source.clientCacheWrites[client];
+    if (source.clientOutputs?.[client]) target.clientOutputs[client] = (target.clientOutputs[client] || 0) + source.clientOutputs[client];
+  }
+  for (const [client, cost] of Object.entries(source.clientCosts)) target.clientCosts[client] = (target.clientCosts[client] || 0) + cost;
+  for (const [model, tokens] of Object.entries(source.models)) {
+    target.models[model] = (target.models[model] || 0) + tokens;
+    if (source.modelCacheReads?.[model]) target.modelCacheReads[model] = (target.modelCacheReads[model] || 0) + source.modelCacheReads[model];
+    if (source.modelCacheWrites?.[model]) target.modelCacheWrites[model] = (target.modelCacheWrites[model] || 0) + source.modelCacheWrites[model];
+    if (source.modelOutputs?.[model]) target.modelOutputs[model] = (target.modelOutputs[model] || 0) + source.modelOutputs[model];
+  }
+  for (const [model, cost] of Object.entries(source.modelCosts)) target.modelCosts[model] = (target.modelCosts[model] || 0) + cost;
+  for (const [client, models] of Object.entries(source.clientModels)) {
+    if (!target.clientModels[client]) target.clientModels[client] = {};
+    for (const [model, tokens] of Object.entries(models)) {
+      target.clientModels[client][model] = (target.clientModels[client][model] || 0) + tokens;
+    }
+  }
+  for (const [client, models] of Object.entries(source.clientModelCosts)) {
+    if (!target.clientModelCosts[client]) target.clientModelCosts[client] = {};
+    for (const [model, cost] of Object.entries(models)) {
+      target.clientModelCosts[client][model] = (target.clientModelCosts[client][model] || 0) + cost;
+    }
+  }
+  for (const session of Object.values(source.sessions)) addSession(target, session);
+  return target;
+}
+
+// Returns a fresh period that is the sum of all non-null arguments. Inputs are
+// normalized first so partial shapes (e.g. a WSL bundle period) are safe.
+function mergePeriods(...periods) {
+  const target = emptyPeriod();
+  for (const period of periods) {
+    if (period) addPeriodInto(target, normalizePeriod(period));
+  }
+  return target;
+}
+
 function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
   const aggregate = { updatedAt: new Date().toISOString(), periods: {}, devices: [] };
   for (const periodName of PERIODS) aggregate.periods[periodName] = emptyPeriod();
@@ -613,40 +662,7 @@ function aggregateDevices(devices, staleAfterMs, nowMs = Date.now()) {
       limits: normalized.limits
     });
     for (const periodName of PERIODS) {
-      const source = normalized.periods[periodName];
-      const target = aggregate.periods[periodName];
-      target.totalTokens += source.totalTokens;
-      target.costUsd += source.costUsd;
-      target.cacheReadTokens += source.cacheReadTokens;
-      target.cacheWriteTokens += source.cacheWriteTokens;
-      target.outputTokens += source.outputTokens;
-      for (const [client, tokens] of Object.entries(source.clients)) {
-        target.clients[client] = (target.clients[client] || 0) + tokens;
-        if (source.clientCacheReads?.[client]) target.clientCacheReads[client] = (target.clientCacheReads[client] || 0) + source.clientCacheReads[client];
-        if (source.clientCacheWrites?.[client]) target.clientCacheWrites[client] = (target.clientCacheWrites[client] || 0) + source.clientCacheWrites[client];
-        if (source.clientOutputs?.[client]) target.clientOutputs[client] = (target.clientOutputs[client] || 0) + source.clientOutputs[client];
-      }
-      for (const [client, cost] of Object.entries(source.clientCosts)) target.clientCosts[client] = (target.clientCosts[client] || 0) + cost;
-      for (const [model, tokens] of Object.entries(source.models)) {
-        target.models[model] = (target.models[model] || 0) + tokens;
-        if (source.modelCacheReads?.[model]) target.modelCacheReads[model] = (target.modelCacheReads[model] || 0) + source.modelCacheReads[model];
-        if (source.modelCacheWrites?.[model]) target.modelCacheWrites[model] = (target.modelCacheWrites[model] || 0) + source.modelCacheWrites[model];
-        if (source.modelOutputs?.[model]) target.modelOutputs[model] = (target.modelOutputs[model] || 0) + source.modelOutputs[model];
-      }
-      for (const [model, cost] of Object.entries(source.modelCosts)) target.modelCosts[model] = (target.modelCosts[model] || 0) + cost;
-      for (const [client, models] of Object.entries(source.clientModels)) {
-        if (!target.clientModels[client]) target.clientModels[client] = {};
-        for (const [model, tokens] of Object.entries(models)) {
-          target.clientModels[client][model] = (target.clientModels[client][model] || 0) + tokens;
-        }
-      }
-      for (const [client, models] of Object.entries(source.clientModelCosts)) {
-        if (!target.clientModelCosts[client]) target.clientModelCosts[client] = {};
-        for (const [model, cost] of Object.entries(models)) {
-          target.clientModelCosts[client][model] = (target.clientModelCosts[client][model] || 0) + cost;
-        }
-      }
-      for (const session of Object.values(source.sessions)) addSession(target, session);
+      addPeriodInto(aggregate.periods[periodName], normalizePeriod(normalized.periods[periodName]));
     }
   }
   aggregate.limits = aggregateLimits(aggregate.devices, staleAfterMs, now);
@@ -718,4 +734,4 @@ function deltaValue(base, fresh, anchor, key) {
   return base ?? fresh;
 }
 
-module.exports = { PERIODS, aggregateDevices, aggregateHistory, applyPeriodDelta, carryDeviceHistory, emptyPeriod, extractUsageFromTokscale, mergeDeviceRecord, normalizeDeviceRecord, normalizePeriod };
+module.exports = { PERIODS, addPeriodInto, aggregateDevices, aggregateHistory, applyPeriodDelta, carryDeviceHistory, emptyPeriod, extractUsageFromTokscale, mergeDeviceRecord, mergePeriods, normalizeDeviceRecord, normalizePeriod };

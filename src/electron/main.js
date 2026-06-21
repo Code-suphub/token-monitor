@@ -185,6 +185,7 @@ function defaultSettings() {
     startAtLogin: false,
     language: 'auto',
     opencodeCookie: '',
+    opencodeProfiles: {},
     deepseekApiKey: '',
     codexManagedAccounts: [],
     appUpdate: {
@@ -792,6 +793,10 @@ function readSettings() {
     merged.floatingBubbleTrigger = merged.floatingBubbleTrigger === 'hover' ? 'hover' : 'click';
     merged.floatingBubbleContent = normalizeTrayContent(merged.floatingBubbleContent, 'icon');
     merged.windowToggleShortcut = normalizeWindowToggleShortcut(merged.windowToggleShortcut);
+    // 如果设置了 opencodeCookie 但没有 profiles，自动迁移
+    if (merged.opencodeCookie && Object.keys(merged.opencodeProfiles || {}).length === 0) {
+      merged.opencodeProfiles = { default: { cookie: merged.opencodeCookie, enabled: true } };
+    }
     Object.assign(merged, normalizeTrayModeSettings(merged));
     return normalizeWindowBehaviorSettings(merged);
   }
@@ -1100,6 +1105,7 @@ function startSyncCollector() {
     limitProviders: settings.limitProviders ?? defaultLimitProviders(),
     limitsRefreshMs: normalizeLimitsRefreshMs(settings.limitsRefreshMs),
     opencodeCookie: settings.opencodeCookie || process.env.TOKEN_MONITOR_OPENCODE_COOKIE || '',
+    opencodeProfiles: settings.opencodeProfiles || {},
     deepseekApiKey: settings.deepseekApiKey || '',
     codexManagedAccounts: codexManagedAccountsForCollector(),
     onUpdate: async (summary) => {
@@ -1138,6 +1144,7 @@ function startHostCollector() {
     limitProviders: settings.limitProviders ?? defaultLimitProviders(),
     limitsRefreshMs: normalizeLimitsRefreshMs(settings.limitsRefreshMs),
     opencodeCookie: settings.opencodeCookie || process.env.TOKEN_MONITOR_OPENCODE_COOKIE || '',
+    opencodeProfiles: settings.opencodeProfiles || {},
     deepseekApiKey: settings.deepseekApiKey || '',
     codexManagedAccounts: codexManagedAccountsForCollector(),
     onUpdate: (summary) => {
@@ -1267,6 +1274,7 @@ function startLocalCollector() {
     limitProviders: settings.limitProviders ?? defaultLimitProviders(),
     limitsRefreshMs: normalizeLimitsRefreshMs(settings.limitsRefreshMs),
     opencodeCookie: settings.opencodeCookie || process.env.TOKEN_MONITOR_OPENCODE_COOKIE || '',
+    opencodeProfiles: settings.opencodeProfiles || {},
     deepseekApiKey: settings.deepseekApiKey || '',
     codexManagedAccounts: codexManagedAccountsForCollector(),
     onUpdate: (summary, reason) => {
@@ -2050,23 +2058,17 @@ let cursorStatusCache = { value: null, at: 0 };
 let opencodeStatusCache = { value: null, at: 0 };
 const CURSOR_STATUS_TTL_MS = 30 * 1000;
 
+// Used by collectors to get the cookie for limit collection.
+// Collector options already pass opencodeProfiles directly;
+// this fallback is for any remaining single-cookie path.
 function currentOpenCodeCookie() {
+  // 优先使用 profiles 中的第一个启用 cookie
+  const profiles = settings?.opencodeProfiles || {};
+  const enabled = Object.entries(profiles).find(([, p]) => p.enabled);
+  if (enabled) return enabled[1].cookie || '';
   return settings?.opencodeCookie || process.env.TOKEN_MONITOR_OPENCODE_COOKIE || '';
 }
 
-async function readOpenCodeStatus() {
-  const cookie = currentOpenCodeCookie();
-  if (!cookie) return { linked: false };
-  // Probe both sources so a Go-only cookie isn't judged solely by Zen (and vice
-  // versa). Both fetchers swallow their own errors, so Promise.all won't reject.
-  const [go, zen] = await Promise.all([
-    opencodeWeb.fetchGoWeb(cookie, {}),
-    opencodeWeb.fetchZen(cookie, {})
-  ]);
-  const summary = opencodeWeb.summarizeLink(go, zen);
-  if (summary.expired) return { ...summary, error: 'OpenCode cookie expired' };
-  return summary;
-}
 
 function normalizeManualCookie(input) {
   let s = String(input || '').trim();
@@ -2429,6 +2431,7 @@ app.whenReady().then(() => {
   ipcMain.handle('opencode:saveCookie', async (_event, raw) => {
     const cookie = opencodeWeb.sanitizeCookieHeader(raw);
     if (!cookie) {
+      settings.opencodeProfiles = {};
       settings.opencodeCookie = '';
       saveSettings();
       opencodeStatusCache = { value: null, at: 0 };
@@ -2436,8 +2439,6 @@ app.whenReady().then(() => {
       return { ok: true, cleared: true };
     }
     try {
-      // Accept the cookie if EITHER Go or Zen authorizes it; only reject when
-      // both report it unauthorized (a genuinely expired/invalid session).
       const [go, zen] = await Promise.all([
         opencodeWeb.fetchGoWeb(cookie, {}),
         opencodeWeb.fetchZen(cookie, {})
@@ -2445,6 +2446,9 @@ app.whenReady().then(() => {
       if (opencodeWeb.summarizeLink(go, zen).expired) {
         return { ok: false, error: 'OpenCode rejected the cookie (it may be expired)' };
       }
+      const profiles = settings.opencodeProfiles || {};
+      profiles.default = { cookie, enabled: true };
+      settings.opencodeProfiles = profiles;
       settings.opencodeCookie = cookie;
       saveSettings();
       opencodeStatusCache = { value: null, at: 0 };
@@ -2465,6 +2469,7 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('opencode:logout', async () => {
     try {
+      settings.opencodeProfiles = {};
       settings.opencodeCookie = '';
       saveSettings();
       opencodeStatusCache = { value: null, at: 0 };
@@ -2503,9 +2508,98 @@ app.whenReady().then(() => {
     if (opencodeStatusCache.value && now - opencodeStatusCache.at < CURSOR_STATUS_TTL_MS) {
       return opencodeStatusCache.value;
     }
-    const value = await readOpenCodeStatus();
+    const profiles = settings.opencodeProfiles || {};
+    const entries = Object.entries(profiles).filter(([, p]) => p.cookie && p.enabled);
+
+    // Query all profiles in parallel
+    const results = await Promise.all(
+      entries.map(async ([name, profile]) => {
+        const [go, zen] = await Promise.all([
+          opencodeWeb.fetchGoWeb(profile.cookie, {}),
+          opencodeWeb.fetchZen(profile.cookie, {})
+        ]);
+        return [name, { ...opencodeWeb.summarizeLink(go, zen), balanceUsd: zen.balanceUsd }];
+      })
+    );
+
+    const result = Object.fromEntries(results);
+
+    // 传统 env cookie
+    const envCookie = process.env.TOKEN_MONITOR_OPENCODE_COOKIE || '';
+    if (envCookie) {
+      const [go, zen] = await Promise.all([
+        opencodeWeb.fetchGoWeb(envCookie, {}),
+        opencodeWeb.fetchZen(envCookie, {})
+      ]);
+      result['env'] = { ...opencodeWeb.summarizeLink(go, zen), balanceUsd: zen.balanceUsd, env: true };
+    }
+    const value = { profiles: result, linked: Object.values(result).some(s => s.linked) };
     opencodeStatusCache = { value, at: now };
     return value;
+  });
+  ipcMain.handle('opencode:getProfiles', async () => {
+    const profiles = settings.opencodeProfiles || {};
+    const hasEnvVar = Boolean(process.env.TOKEN_MONITOR_OPENCODE_COOKIE);
+    // Strip cookie values — renderer only needs name/enabled for display
+    const safe = {};
+    for (const [name, p] of Object.entries(profiles)) {
+      safe[name] = { enabled: p.enabled };
+    }
+    return { profiles: safe, hasEnvVar };
+  });
+  ipcMain.handle('opencode:saveProfile', async (_event, name, raw) => {
+    const cookie = opencodeWeb.sanitizeCookieHeader(raw);
+    if (!cookie || !name) return { ok: false, error: 'Empty name or cookie' };
+    try {
+      const [go, zen] = await Promise.all([
+        opencodeWeb.fetchGoWeb(cookie, {}),
+        opencodeWeb.fetchZen(cookie, {})
+      ]);
+      if (opencodeWeb.summarizeLink(go, zen).expired) {
+        return { ok: false, error: 'OpenCode rejected the cookie (it may be expired)' };
+      }
+      const profiles = settings.opencodeProfiles || {};
+      profiles[name] = { cookie, enabled: true };
+      settings.opencodeProfiles = profiles;
+      saveSettings();
+      opencodeStatusCache = { value: null, at: 0 };
+      startMode();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+  ipcMain.handle('opencode:deleteProfile', async (_event, name) => {
+    const profiles = settings.opencodeProfiles || {};
+    delete profiles[name];
+    settings.opencodeProfiles = profiles;
+    saveSettings();
+    opencodeStatusCache = { value: null, at: 0 };
+    startMode();
+    return { ok: true };
+  });
+  ipcMain.handle('opencode:renameProfile', async (_event, oldName, newName) => {
+    if (!newName || oldName === newName) return { ok: false, error: 'Invalid name' };
+    const profiles = settings.opencodeProfiles || {};
+    if (!profiles[oldName]) return { ok: false, error: 'Profile not found' };
+    if (profiles[newName]) return { ok: false, error: 'Profile name already exists' };
+    profiles[newName] = profiles[oldName];
+    delete profiles[oldName];
+    settings.opencodeProfiles = profiles;
+    saveSettings();
+    opencodeStatusCache = { value: null, at: 0 };
+    startMode();
+    return { ok: true };
+  });
+  ipcMain.handle('opencode:setProfileEnabled', async (_event, name, enabled) => {
+    const profiles = settings.opencodeProfiles || {};
+    if (!profiles[name]) return { ok: false, error: 'Profile not found' };
+    profiles[name].enabled = Boolean(enabled);
+    settings.opencodeProfiles = profiles;
+    saveSettings();
+    opencodeStatusCache = { value: null, at: 0 };
+    startMode();
+    return { ok: true };
   });
   ipcMain.handle('codex:accounts', () => codexAccountsForRenderer());
   ipcMain.handle('codex:addAccount', async (event) => {

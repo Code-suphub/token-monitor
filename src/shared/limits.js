@@ -198,7 +198,7 @@ function isConfiguredProvider(provider) {
 }
 
 function providerCollapseKey(provider) {
-  if (provider.provider === 'codex' && isConfiguredProvider(provider)) {
+  if ((provider.provider === 'codex' || provider.provider === 'opencode') && isConfiguredProvider(provider)) {
     return providerAggregateKey(provider);
   }
   return provider.provider;

@@ -153,7 +153,7 @@ function normalizeInitialViewValue(value, allowed, fallback) {
   return allowed.has(raw) ? raw : fallback;
 }
 
-const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeActivityScrollLeft: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, homeSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', customPricingExpanded: false, opencodeAccount: { status: null, error: '' }, opencodeCookieExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
+const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeActivityScrollLeft: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, homeSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', customPricingExpanded: false, opencodeProfileCount: 0, opencodeCookieExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, showLiveDot: true, showToolIcons: true, titleIconOnly: false, settingsInTitlebar: false };
 let preferenceDrag = null;
@@ -161,7 +161,7 @@ let viewSwitcherLongPressTimer = null;
 let viewSwitcherLongPressTriggered = false;
 let viewSwitcherHoverCloseTimer = null;
 const els = {
-  shell: document.querySelector('.shell'), status: document.getElementById('status'), liveDot: document.getElementById('liveDot'), totalTokens: document.getElementById('totalTokens'), cost: document.getElementById('cost'), homePanel: document.getElementById('homePanel'), breakdown: document.getElementById('breakdown'), serviceStatusPanel: document.getElementById('serviceStatusPanel'), limitsPanel: document.getElementById('limitsPanel'), trendsPanel: document.getElementById('trendsPanel'), viewSwitcher: document.getElementById('viewSwitcher'), pinButton: document.getElementById('pinButton'), settingsButton: document.getElementById('settingsButton'), settingsPanel: document.getElementById('settingsPanel'), languageInput: document.getElementById('languageInput'), currencyInput: document.getElementById('currencyInput'), hubUrlInput: document.getElementById('hubUrlInput'), secretInput: document.getElementById('secretInput'), deviceIdInput: document.getElementById('deviceIdInput'), limitProviderCheckboxes: document.getElementById('limitProviderCheckboxes'), limitsRefreshInput: document.getElementById('limitsRefreshInput'), showLimitSourceInput: document.getElementById('showLimitSourceInput'), showActiveAccountInput: document.getElementById('showActiveAccountInput'), systemGlassInput: document.getElementById('systemGlassInput'), liveDotInput: document.getElementById('liveDotInput'), toolIconsInput: document.getElementById('toolIconsInput'), floatingBubbleInput: document.getElementById('floatingBubbleInput'), floatingBubbleTriggerInput: document.getElementById('floatingBubbleTriggerInput'), floatingBubbleTriggerRow: document.getElementById('floatingBubbleTriggerRow'), floatingBubbleContentInput: document.getElementById('floatingBubbleContentInput'), floatingBubbleContentRow: document.getElementById('floatingBubbleContentRow'), floatingBubbleContent: document.getElementById('floatingBubbleContent'), discordRpcInput: document.getElementById('discordRpcInput'), windowBehaviorInput: document.getElementById('windowBehaviorInput'), showTrayIconInput: document.getElementById('showTrayIconInput'), trayModeInput: document.getElementById('trayModeInput'), trayContentInput: document.getElementById('trayContentInput'), windowToggleShortcutValue: document.getElementById('windowToggleShortcutValue'), windowToggleShortcutRecordButton: document.getElementById('windowToggleShortcutRecordButton'), windowToggleShortcutClearButton: document.getElementById('windowToggleShortcutClearButton'), windowToggleShortcutNote: document.getElementById('windowToggleShortcutNote'), glassInput: document.getElementById('glassInput'), blurInput: document.getElementById('blurInput'), zoomInput: document.getElementById('zoomInput'), resetGlassButton: document.getElementById('resetGlassButton'), resetDepthButton: document.getElementById('resetDepthButton'), resetZoomButton: document.getElementById('resetZoomButton'), saveSettingsButton: document.getElementById('saveSettingsButton'), clientDisplayList: document.getElementById('clientDisplayList'), openConfigButton: document.getElementById('openConfigButton'), refreshButton: document.getElementById('refreshButton'), minButton: document.getElementById('minButton'), closeButton: document.getElementById('closeButton'), floatingBubbleTab: document.getElementById('floatingBubbleTab')
+  shell: document.querySelector('.shell'), status: document.getElementById('status'), liveDot: document.getElementById('liveDot'), totalTokens: document.getElementById('totalTokens'), cost: document.getElementById('cost'), cacheRate: document.getElementById('cacheRate'), homePanel: document.getElementById('homePanel'), breakdown: document.getElementById('breakdown'), serviceStatusPanel: document.getElementById('serviceStatusPanel'), limitsPanel: document.getElementById('limitsPanel'), trendsPanel: document.getElementById('trendsPanel'), viewSwitcher: document.getElementById('viewSwitcher'), pinButton: document.getElementById('pinButton'), settingsButton: document.getElementById('settingsButton'), settingsPanel: document.getElementById('settingsPanel'), languageInput: document.getElementById('languageInput'), currencyInput: document.getElementById('currencyInput'), hubUrlInput: document.getElementById('hubUrlInput'), secretInput: document.getElementById('secretInput'), deviceIdInput: document.getElementById('deviceIdInput'), limitProviderCheckboxes: document.getElementById('limitProviderCheckboxes'), limitsRefreshInput: document.getElementById('limitsRefreshInput'), showLimitSourceInput: document.getElementById('showLimitSourceInput'), showActiveAccountInput: document.getElementById('showActiveAccountInput'), systemGlassInput: document.getElementById('systemGlassInput'), liveDotInput: document.getElementById('liveDotInput'), toolIconsInput: document.getElementById('toolIconsInput'), floatingBubbleInput: document.getElementById('floatingBubbleInput'), floatingBubbleTriggerInput: document.getElementById('floatingBubbleTriggerInput'), floatingBubbleTriggerRow: document.getElementById('floatingBubbleTriggerRow'), floatingBubbleContentInput: document.getElementById('floatingBubbleContentInput'), floatingBubbleContentRow: document.getElementById('floatingBubbleContentRow'), floatingBubbleContent: document.getElementById('floatingBubbleContent'), discordRpcInput: document.getElementById('discordRpcInput'), windowBehaviorInput: document.getElementById('windowBehaviorInput'), showTrayIconInput: document.getElementById('showTrayIconInput'), trayModeInput: document.getElementById('trayModeInput'), trayContentInput: document.getElementById('trayContentInput'), windowToggleShortcutValue: document.getElementById('windowToggleShortcutValue'), windowToggleShortcutRecordButton: document.getElementById('windowToggleShortcutRecordButton'), windowToggleShortcutClearButton: document.getElementById('windowToggleShortcutClearButton'), windowToggleShortcutNote: document.getElementById('windowToggleShortcutNote'), glassInput: document.getElementById('glassInput'), blurInput: document.getElementById('blurInput'), zoomInput: document.getElementById('zoomInput'), resetGlassButton: document.getElementById('resetGlassButton'), resetDepthButton: document.getElementById('resetDepthButton'), resetZoomButton: document.getElementById('resetZoomButton'), saveSettingsButton: document.getElementById('saveSettingsButton'), clientDisplayList: document.getElementById('clientDisplayList'), openConfigButton: document.getElementById('openConfigButton'), refreshButton: document.getElementById('refreshButton'), minButton: document.getElementById('minButton'), closeButton: document.getElementById('closeButton'), floatingBubbleTab: document.getElementById('floatingBubbleTab')
 };
 Object.assign(els, {
   floatingBubbleOptions: document.getElementById('floatingBubbleOptions'),
@@ -343,11 +343,11 @@ function settingsSectionSummary(section) {
   }
   if (section === 'accounts') {
     const cursorLinked = Boolean(state.cursorAccount.status?.loggedIn) && !state.cursorAccount.status?.expired;
-    const opencodeLinked = Boolean(state.opencodeAccount.status?.linked) && !state.opencodeAccount.status?.expired;
+    const opencodeCount = state.opencodeProfileCount || 0;
     const deepseekLinked = deepseekAccountLinked();
     const codexLinked = (state.settings?.codexManagedAccounts || []).length > 0;
     return t('settings.summary.accounts', {
-      linked: (codexLinked ? 1 : 0) + (cursorLinked ? 1 : 0) + (opencodeLinked ? 1 : 0) + (deepseekLinked ? 1 : 0),
+      linked: (codexLinked ? 1 : 0) + (cursorLinked ? 1 : 0) + (opencodeCount > 0 ? 1 : 0) + (deepseekLinked ? 1 : 0),
       total: 4
     });
   }
@@ -986,8 +986,11 @@ function formatMoney(value, currency) {
   return `${symbol}${number.toFixed(2)}`;
 }
 
-function formatLimitWindowValue(window, fillPercent, hasPercent) {
-  if (hasPercent) return `${formatPercent(fillPercent)} left`;
+function formatLimitWindowValue(window, fillPercent, hasPercent, showRemaining = true) {
+  if (hasPercent) {
+    const label = showRemaining ? 'left' : 'used';
+    return `${formatPercent(fillPercent)} ${label}`;
+  }
   if (!window) return '--';
   const remaining = Number(window?.remaining);
   if (Number.isFinite(remaining)) {
@@ -1006,16 +1009,14 @@ function balanceRemainingWindow(balance) {
   return { remainingPercent };
 }
 
-function limitWindowNode(label, window, color, tone = 1, valueOverride = null) {
+function limitWindowNode(label, window, color, tone = 1, valueOverride = null, showRemaining = true) {
   const remaining = Number(window?.remainingPercent);
   const used = Number(window?.usedPercent);
   const showMeter = window?.showMeter !== false;
   const hasPercent = showMeter && (Number.isFinite(remaining) || Number.isFinite(used));
-  const fillPercent = Number.isFinite(remaining)
-    ? remaining
-    : Number.isFinite(used)
-      ? 100 - used
-      : 0;
+  const fillPercent = showRemaining
+    ? (Number.isFinite(remaining) ? remaining : Number.isFinite(used) ? 100 - used : 0)
+    : (Number.isFinite(used) ? used : Number.isFinite(remaining) ? 100 - remaining : 0);
   const safePercent = Math.max(0, Math.min(100, fillPercent));
   const item = document.createElement('div');
   item.className = 'limit-window';
@@ -1024,7 +1025,7 @@ function limitWindowNode(label, window, color, tone = 1, valueOverride = null) {
   const name = document.createElement('span');
   name.textContent = window?.label || label;
   const value = document.createElement('span');
-  value.textContent = valueOverride != null ? valueOverride : formatLimitWindowValue(window, fillPercent, hasPercent);
+  value.textContent = valueOverride != null ? valueOverride : formatLimitWindowValue(window, fillPercent, hasPercent, showRemaining);
   text.append(name, value);
   const meter = document.createElement('div');
   meter.className = 'limit-meter';
@@ -1147,11 +1148,11 @@ function renderProviderWindows(provider, color) {
     const session = windowForKind(provider, 'session');
     const weekly = windowForKind(provider, 'weekly');
     const monthly = windowForKind(provider, 'billing');
-    if (session) windows.append(limitWindowNode('Session', session, color, 0.95));
-    if (weekly) windows.append(limitWindowNode('Weekly', weekly, color, 0.68));
+    if (session) windows.append(limitWindowNode('Session', session, color, 0.95, null, false));
+    if (weekly) windows.append(limitWindowNode('Weekly', weekly, color, 0.68, null, false));
     // Monthly spans the full row (like Balance) so it never leaves a half-empty grid cell.
     if (monthly) {
-      const node = limitWindowNode('Monthly', monthly, color, 0.5);
+      const node = limitWindowNode('Monthly', monthly, color, 0.5, null, false);
       node.classList.add('limit-window-wide');
       windows.append(node);
     }
@@ -1237,6 +1238,26 @@ function renderCodexAccountGroup(label, providers, color) {
   return row;
 }
 
+function renderOpenCodeAccountGroup(label, providers, color) {
+  const row = document.createElement('div');
+  row.className = 'limit-row limit-row-group';
+  const groupProvider = { provider: 'opencode', status: 'ok', windows: [] };
+  const head = renderLimitProviderHead('opencode', label, groupProvider, color, {
+    planText: t('settings.opencode.nAccounts', { count: providers.length }),
+    hideMeta: true
+  });
+  const accountList = document.createElement('div');
+  accountList.className = 'limit-account-list';
+  providers.forEach((provider) => {
+    accountList.append(renderLimitProviderRow('opencode', provider.accountLabel || 'OpenCode', provider, color, {
+      accountRow: true,
+      showIcon: false
+    }));
+  });
+  row.append(head, accountList);
+  return row;
+}
+
 function renderLimits() {
   if (!els.limitsPanel) return;
   const limitsEnabled = state.settings?.limitsEnabled !== false;
@@ -1261,6 +1282,10 @@ function renderLimits() {
     const color = clientColors[id] || clientColors.default;
     if (id === 'codex' && Array.isArray(visibleProviders) && visibleProviders.length > 1) {
       nodes.push(renderCodexAccountGroup(label, visibleProviders, color));
+      continue;
+    }
+    if (id === 'opencode' && Array.isArray(visibleProviders) && visibleProviders.length > 1) {
+      nodes.push(renderOpenCodeAccountGroup(label, visibleProviders, color));
       continue;
     }
     const provider = Array.isArray(visibleProviders) ? visibleProviders[0] : visibleProviders;
@@ -2133,6 +2158,22 @@ function render() {
   }
   state.currentTotal = nextTotal;
   els.cost.textContent = formatCost(period.costUsd || 0);
+  // Cache hit rate = cacheRead / input  (input 是总输入，已含 cacheRead)
+  const cacheReadVal = period.cacheReadTokens || 0;
+  const outputTokensVal = period.outputTokens || 0;
+  const inputTotal = nextTotal - outputTokensVal; // 总 input（含 cacheRead）
+  if (cacheReadVal > 0 && inputTotal > 0) {
+    const hitPct = Math.round((cacheReadVal / inputTotal) * 100);
+    els.cacheRate.textContent = '⚡ Cache hit: ' + hitPct + '%';
+    els.cacheRate.classList.remove('hidden');
+    const r = Math.round(255 * (1 - hitPct / 100) * 2);
+    const g = Math.round(255 * (hitPct / 100) * 1.5);
+    const color = hitPct >= 90 ? '#4ade80' : `rgb(${Math.min(255, r)}, ${Math.min(255, g)}, 80)`;
+    els.cacheRate.style.color = color;
+    els.cacheRate.style.textShadow = hitPct >= 90 ? '0 0 8px rgba(74, 222, 128, 0.4)' : 'none';
+  } else {
+    els.cacheRate.classList.add('hidden');
+  }
   if (!state.refreshBusy && !state.refreshFeedbackTimer) setRefreshButtonState('idle');
   els.shell.classList.toggle('session-mode', state.breakdown === 'session');
   els.shell.classList.toggle('home-mode', state.breakdown === 'home');
@@ -3126,7 +3167,7 @@ function syncSettingsForm() {
   renderToolPreferences();
   renderLimitProviderCheckboxes();
   renderSettingsSummaries();
-  renderOpencodeStatus();
+  renderOpenCodeProfiles();
   applyVendorColorOverrides(state.settings.vendorColors);
   applyAppearanceSettings(state.settings);
   buildAppearanceColorControls();
@@ -4637,114 +4678,153 @@ function renderDeepseekStatus() {
   renderSettingsSummaries();
 }
 
-function renderOpencodeStatus() {
-  const statusEl = document.getElementById('opencodeCookieStatus');
-  const openBtn = document.getElementById('opencodeOpenBrowser');
-  const logoutBtn = document.getElementById('opencodeLogoutButton');
-  const refreshBtn = document.getElementById('opencodeRefreshButton');
-  const manualPanel = document.getElementById('opencodeManualPanel');
-  const errorEl = document.getElementById('opencodeErrorMessage');
-  if (!statusEl || !openBtn || !logoutBtn || !refreshBtn || !manualPanel || !errorEl) return;
+function renderOpenCodeProfiles() {
+  const listEl = document.getElementById('opencodeProfileList');
+  if (!listEl) return;
 
-  errorEl.classList.add('hidden');
-  errorEl.textContent = '';
+  const api = window.tokenMonitor.opencode;
 
-  if (state.opencodeAccount.error) {
-    setCursorStatusText(statusEl, t('settings.common.error'));
-    errorEl.textContent = state.opencodeAccount.errorMessage || t('settings.opencode.statusCheckFailed', { message: state.opencodeAccount.error });
-    errorEl.classList.remove('hidden');
-    openBtn.classList.remove('hidden');
-    logoutBtn.classList.remove('hidden');
-    refreshBtn.classList.remove('hidden');
-    manualPanel.classList.remove('hidden');
-    setSettingsSectionExpanded('accounts', true);
-    setOpencodeCookieExpanded(true);
-    renderSettingsSummaries();
-    return;
+  api.getProfiles().then(({ profiles, hasEnvVar }) => {
+    listEl.innerHTML = '';
+    const entries = Object.entries(profiles);
+
+    if (entries.length === 0 && !hasEnvVar) {
+      listEl.innerHTML = '<div class="opencode-empty">' + t('settings.opencode.emptyList') + '</div>';
+      state.opencodeProfileCount = 0;
+      return;
+    }
+
+    state.opencodeProfileCount = entries.length;
+
+    for (const [name, profile] of entries) {
+      const item = document.createElement('div');
+      item.className = 'opencode-profile-item';
+
+      const toggle = document.createElement('input');
+      toggle.type = 'checkbox';
+      toggle.checked = profile.enabled;
+      toggle.addEventListener('change', () => {
+        api.setProfileEnabled(name, toggle.checked).then(() => {
+          const info = item.querySelector('.profile-info');
+          info.textContent = toggle.checked ? '...' : t('settings.opencode.disabled');
+          renderSettingsSummaries();
+        });
+      });
+
+      const nameBox = document.createElement('span');
+      nameBox.className = 'profile-name-box';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'profile-name';
+      nameSpan.textContent = name;
+
+      const nameInput = document.createElement('input');
+      nameInput.className = 'profile-name-input hidden';
+      nameInput.type = 'text';
+      nameInput.value = name;
+
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'profile-rename-btn';
+      renameBtn.textContent = '✎';
+      renameBtn.title = t('settings.opencode.rename');
+
+      let editing = false;
+      function beginRename() {
+        if (editing) return;
+        editing = true;
+        nameSpan.classList.add('hidden');
+        nameInput.classList.remove('hidden');
+        nameInput.focus();
+        nameInput.select();
+      }
+      function endRename(save) {
+        if (!editing) return;
+        editing = false;
+        nameInput.classList.add('hidden');
+        nameSpan.classList.remove('hidden');
+        if (save && nameInput.value.trim() && nameInput.value.trim() !== name) {
+          api.renameProfile(name, nameInput.value.trim()).then(() => {
+            renderOpenCodeProfiles();
+            updateOpenCodeProfilesStatus();
+            renderSettingsSummaries();
+          });
+        }
+      }
+      renameBtn.addEventListener('click', beginRename);
+      nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') endRename(true);
+        if (e.key === 'Escape') endRename(false);
+      });
+      nameInput.addEventListener('blur', () => endRename(true));
+
+      nameBox.append(nameSpan, nameInput, renameBtn);
+
+      const rightBox = document.createElement('span');
+      rightBox.className = 'profile-right';
+
+      const infoSpan = document.createElement('span');
+      infoSpan.className = 'profile-info';
+      infoSpan.id = 'opencode-info-' + name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      infoSpan.textContent = profile.enabled ? '...' : t('settings.opencode.disabled');
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'profile-delete';
+      deleteBtn.textContent = '✕';
+      deleteBtn.title = t('settings.opencode.delete');
+      deleteBtn.addEventListener('click', async () => {
+        if (confirm(t('settings.opencode.deleteConfirm', { name }))) {
+          await api.deleteProfile(name);
+          renderOpenCodeProfiles();
+          updateOpenCodeProfilesStatus();
+          renderSettingsSummaries();
+        }
+      });
+
+      rightBox.append(infoSpan, deleteBtn);
+      item.append(toggle, nameBox, rightBox);
+      listEl.appendChild(item);
+    }
+
+    updateOpenCodeProfilesStatus();
+  });
+}async function updateOpenCodeProfilesStatus() {
+  const api = window.tokenMonitor.opencode;
+  const status = await api.status();
+  const profiles = status.profiles || {};
+
+  for (const [name, s] of Object.entries(profiles)) {
+    const safeName = name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const infoEl = document.getElementById('opencode-info-' + safeName);
+    if (!infoEl) continue;
+
+    if (s.expired) {
+      infoEl.textContent = t('settings.opencode.statusExpired');
+    } else if (s.linked) {
+      const parts = [];
+      if (s.go) parts.push('Go');
+      if (s.zen) parts.push('Zen');
+      let text = '✓ ' + parts.join(' · ');
+      if (s.hasBalance && s.balanceUsd != null) {
+        text += '  $' + Number(s.balanceUsd).toFixed(2);
+      }
+      infoEl.textContent = text;
+    } else if (s.error) {
+      infoEl.textContent = s.error;
+    } else {
+      infoEl.textContent = t('settings.opencode.connectFailed');
+    }
   }
 
-  const status = state.opencodeAccount.status;
-  if (!status) {
-    setCursorStatusText(statusEl, t('settings.common.checking'));
-    renderSettingsSummaries();
-    return;
+  // Update summary pill
+  const totalEl = document.getElementById('opencodeCookieStatus');
+  if (totalEl) {
+    const linkedCount = Object.values(profiles).filter(s => s.linked).length;
+    const totalCount = Object.keys(profiles).length;
+    if (totalCount > 0) {
+      totalEl.textContent = t('settings.opencode.connected', { linked: linkedCount, total: totalCount });
+    } else {
+      totalEl.textContent = t('settings.opencode.statusNotSet');
+    }
   }
-
-  if (status.saveFailed) {
-    setCursorStatusText(statusEl, t('settings.common.error'));
-    errorEl.textContent = status.error || t('settings.common.error');
-    errorEl.classList.remove('hidden');
-    openBtn.classList.remove('hidden');
-    logoutBtn.classList.add('hidden');
-    refreshBtn.classList.add('hidden');
-    manualPanel.classList.remove('hidden');
-    setOpencodeCookieExpanded(true);
-    return;
-  }
-
-  if (!status.linked) {
-    setCursorStatusText(statusEl, t('settings.opencode.statusNotSet'));
-    openBtn.classList.remove('hidden');
-    logoutBtn.classList.add('hidden');
-    refreshBtn.classList.add('hidden');
-    manualPanel.classList.remove('hidden');
-    renderSettingsSummaries();
-    return;
-  }
-
-  if (status.expired) {
-    setCursorStatusText(statusEl, t('settings.opencode.expired'));
-    errorEl.textContent = status.error || t('settings.opencode.expired');
-    errorEl.classList.remove('hidden');
-    openBtn.classList.remove('hidden');
-    logoutBtn.classList.remove('hidden');
-    refreshBtn.classList.remove('hidden');
-    manualPanel.classList.remove('hidden');
-    setSettingsSectionExpanded('accounts', true);
-    setOpencodeCookieExpanded(true);
-    renderSettingsSummaries();
-    return;
-  }
-
-  if (status.error) {
-    setCursorStatusText(statusEl, t('settings.common.error'));
-    errorEl.textContent = t('settings.opencode.statusCheckFailed', { message: status.error });
-    errorEl.classList.remove('hidden');
-    openBtn.classList.add('hidden');
-    logoutBtn.classList.remove('hidden');
-    refreshBtn.classList.remove('hidden');
-    manualPanel.classList.add('hidden');
-    renderSettingsSummaries();
-    return;
-  }
-
-  // Linked: append a read-only indicator of what the cookie actually unlocked
-  // (Go real usage / Zen balance). Empty when the account has neither yet.
-  const tags = [];
-  if (status.go) tags.push('Go ✓');
-  if (status.hasBalance) tags.push(`${t('settings.opencode.tagZenBalance')} ✓`);
-  else if (status.zen) tags.push('Zen ✓');
-  const linkedText = tags.length
-    ? `${t('settings.opencode.statusLinked')} · ${tags.join(' · ')}`
-    : t('settings.opencode.statusLinked');
-  setCursorStatusText(statusEl, linkedText);
-  openBtn.classList.add('hidden');
-  logoutBtn.classList.remove('hidden');
-  refreshBtn.classList.remove('hidden');
-  manualPanel.classList.add('hidden');
-  renderSettingsSummaries();
-}
-
-async function refreshOpencodeStatus() {
-  state.opencodeAccount = { status: null, error: '' };
-  renderOpencodeStatus();
-  try {
-    const status = await window.tokenMonitor.opencode.status();
-    state.opencodeAccount = { status, error: '' };
-  } catch (err) {
-    state.opencodeAccount = { status: null, error: err.message };
-  }
-  renderOpencodeStatus();
 }
 
 function renderCursorStatus() {
@@ -5126,53 +5206,33 @@ function setupCursorAccountUI() {
 
   const opencodeToggle = document.getElementById('opencodeSettingsToggle');
   if (opencodeToggle) {
-    opencodeToggle.addEventListener('click', () => setOpencodeCookieExpanded(!state.opencodeCookieExpanded));
-    setOpencodeCookieExpanded(false);
-    renderOpencodeStatus();
-
-    document.getElementById('opencodeOpenBrowser').addEventListener('click', () => {
-      window.tokenMonitor.openExternal('https://opencode.ai/auth');
-    });
-
-    document.getElementById('opencodeLogoutButton').addEventListener('click', async () => {
-      await window.tokenMonitor.opencode.logout();
-      if (state.settings) state.settings.opencodeCookie = '';
-      await refreshOpencodeStatus();
-      await refreshStats({ force: true });
-    });
-
-    document.getElementById('opencodeRefreshButton').addEventListener('click', () => {
-      refreshOpencodeStatus();
+    opencodeToggle.addEventListener('click', () => {
+      const expanding = document.getElementById('opencodeSettingsDetails').classList.contains('hidden');
+      setOpencodeCookieExpanded(expanding);
+      if (expanding) renderOpenCodeProfiles();
     });
 
     document.getElementById('opencodeCookieSubmit').addEventListener('click', async () => {
       const input = document.getElementById('opencodeCookieInput');
+      const nameInput = document.getElementById('opencodeProfileName');
       const errorEl = document.getElementById('opencodeErrorMessage');
+      const name = (nameInput.value || '').trim() || 'default';
+      const cookie = input.value;
+
       errorEl.classList.add('hidden');
-      state.opencodeAccount = { status: null, error: '' };
-      renderOpencodeStatus();
-      const result = await window.tokenMonitor.opencode.saveCookie(input.value);
-      if (result?.ok) {
+
+      const result = await window.tokenMonitor.opencode.saveProfile(name, cookie);
+      if (result.ok) {
         input.value = '';
-        if (state.settings) state.settings.opencodeCookie = result.cleared ? '' : 'set';
-        await refreshOpencodeStatus();
-        if (!result.cleared) setOpencodeCookieExpanded(false);
-        await refreshStats({ force: true });
+        nameInput.value = '';
+        renderOpenCodeProfiles();
+        updateOpenCodeProfilesStatus();
+        renderSettingsSummaries();
       } else {
-        const message = result?.error || t('settings.common.error');
-        state.opencodeAccount = {
-          status: {
-            linked: false,
-            saveFailed: true,
-            error: t('settings.opencode.saveFailed', { message })
-          },
-          error: ''
-        };
-        renderOpencodeStatus();
+        errorEl.textContent = result.error || t('settings.opencode.saveFailedShort');
+        errorEl.classList.remove('hidden');
       }
     });
-
-    refreshOpencodeStatus();
   }
 
   const deepseekToggle = document.getElementById('deepseekSettingsToggle');

@@ -75,7 +75,12 @@ contextBridge.exposeInMainWorld('tokenMonitor', {
   opencode: {
     saveCookie: (cookie) => ipcRenderer.invoke('opencode:saveCookie', cookie),
     logout: () => ipcRenderer.invoke('opencode:logout'),
-    status: () => ipcRenderer.invoke('opencode:status')
+    status: () => ipcRenderer.invoke('opencode:status'),
+    getProfiles: () => ipcRenderer.invoke('opencode:getProfiles'),
+    saveProfile: (name, cookie) => ipcRenderer.invoke('opencode:saveProfile', name, cookie),
+    deleteProfile: (name) => ipcRenderer.invoke('opencode:deleteProfile', name),
+    renameProfile: (oldName, newName) => ipcRenderer.invoke('opencode:renameProfile', oldName, newName),
+    setProfileEnabled: (name, enabled) => ipcRenderer.invoke('opencode:setProfileEnabled', name, enabled)
   },
   codex: {
     accounts: () => ipcRenderer.invoke('codex:accounts'),

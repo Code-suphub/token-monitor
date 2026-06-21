@@ -83,37 +83,27 @@ test('Cursor account header omits plan and reset details', () => {
   assert.doesNotMatch(body, /membershipType|billingCycleEnd|billingResets/);
 });
 
-test('OpenCode account panel mirrors Cursor linked-state controls', () => {
+test('OpenCode account panel provides multi-profile management', () => {
   const html = readRendererFile('index.html');
   const details = html.match(/<div id="opencodeSettingsDetails"[\s\S]*?<div id="opencodeErrorMessage" class="settings-note error hidden"><\/div>/)?.[0] || '';
-  assert.match(details, /<button id="opencodeLogoutButton" class="hidden" data-i18n="settings\.common\.logout">/);
-  assert.match(details, /<button id="opencodeRefreshButton" class="hidden" data-i18n="settings\.common\.refresh">/);
-  assert.match(details, /<div id="opencodeManualPanel">[\s\S]*?<textarea id="opencodeCookieInput"/);
-  assert.match(details, /data-i18n="settings\.opencode\.step3Before">Copy the<\/span> <code>auth<\/code> <span data-i18n="settings\.opencode\.step3After">value\.<\/span>/);
-  assert.doesNotMatch(details, /Name\/Value columns/);
-  assert.doesNotMatch(details, /auth=&lt;auth value&gt;/);
-  assert.doesNotMatch(details, /oc_locale/);
-  assert.doesNotMatch(details, /full Cookie header/);
-  assert.match(details, /placeholder="auth=\.\.\."/);
+  assert.match(details, /<div id="opencodeProfileList" class="opencode-profile-list"><\/div>/);
+  assert.match(details, /<details id="opencodeAddForm" class="opencode-add-form">/);
+  assert.match(details, /<span data-i18n="settings\.opencode\.addProfile"/);
+  assert.match(details, /<input id="opencodeProfileName" type="text"[\s\S]*data-i18n-placeholder="settings\.opencode\.profileNamePlaceholder"/);
+  assert.match(details, /<textarea id="opencodeCookieInput"[\s\S]*placeholder="auth=\.\.\."><\/textarea>/);
+  assert.match(details, /<button id="opencodeCookieSubmit" class="add-save-btn" data-i18n="settings\.opencode\.saveProfile">/);
   assert.match(details, /<div id="opencodeErrorMessage" class="settings-note error hidden"><\/div>/);
 
   const app = readRendererFile('app.js');
-  const renderBody = functionBody(app, 'renderOpencodeStatus', 'refreshOpencodeStatus');
-  assert.match(
-    renderBody,
-    /if \(status\.saveFailed\) \{[\s\S]*logoutBtn\.classList\.add\('hidden'\);[\s\S]*refreshBtn\.classList\.add\('hidden'\);[\s\S]*manualPanel\.classList\.remove\('hidden'\);/,
-    'failed manual saves should not expose linked-account controls'
-  );
-  assert.match(renderBody, /t\('settings\.opencode\.statusLinked'\)/);
-  assert.match(renderBody, /logoutBtn\.classList\.remove\('hidden'\)/);
-  assert.match(renderBody, /refreshBtn\.classList\.remove\('hidden'\)/);
-  assert.match(renderBody, /manualPanel\.classList\.add\('hidden'\)/);
+  assert.match(app, /function renderOpenCodeProfiles\(\)/);
+  assert.match(app, /function updateOpenCodeProfilesStatus\(\)/);
+  assert.match(app, /function renderOpenCodeAccountGroup\(/);
+  assert.match(app, /function setOpencodeCookieExpanded\(/);
 
   const setupBody = functionBodyBeforeMarker(app, 'setupCursorAccountUI', '\nsetupCursorAccountUI();');
-  assert.match(setupBody, /window\.tokenMonitor\.openExternal\('https:\/\/opencode\.ai\/auth'\)/);
-  assert.match(setupBody, /saveFailed: true/);
-  assert.match(setupBody, /window\.tokenMonitor\.opencode\.logout\(\)/);
-  assert.match(setupBody, /refreshOpencodeStatus\(\)/);
+  assert.match(setupBody, /window\.tokenMonitor\.opencode\.saveProfile\(/);
+  assert.match(setupBody, /renderOpenCodeProfiles\(\)/);
+  assert.match(setupBody, /updateOpenCodeProfilesStatus\(\)/);
 });
 
 test('DeepSeek account panel provides a first-class API key entry', () => {
@@ -130,7 +120,7 @@ test('DeepSeek account panel provides a first-class API key entry', () => {
   assert.match(setupBody, /saveSettings\(\{ deepseekApiKey: input\.value \}\)/);
   assert.match(setupBody, /saveSettings\(\{ deepseekApiKey: '' \}\)/);
   assert.match(setupBody, /refreshStats\(\{ force: true \}\)/);
-  const renderBody = functionBody(app, 'renderDeepseekStatus', 'renderOpencodeStatus');
+  const renderBody = functionBody(app, 'renderDeepseekStatus', 'renderOpenCodeProfiles');
   assert.match(renderBody, /const openBtn = document\.getElementById\('deepseekOpenBrowser'\);/);
   assert.match(renderBody, /const linked = deepseekAccountLinked\(\);/);
   assert.match(renderBody, /manualPanel\.classList\.toggle\('hidden', linked\)/);
@@ -154,7 +144,7 @@ test('DeepSeek account linked state requires a validated API key', () => {
   assert.match(linkedBody, /deepseekProviderForAccount\(\)/);
   assert.match(linkedBody, /provider\?\.status === 'ok'/);
 
-  const renderBody = functionBody(app, 'renderDeepseekStatus', 'renderOpencodeStatus');
+  const renderBody = functionBody(app, 'renderDeepseekStatus', 'renderOpenCodeProfiles');
   assert.match(
     renderBody,
     /if \(linked\) \{[\s\S]*settings\.deepseek\.statusSet[\s\S]*\} else if \(provider\?\.status === 'unauthorized'\) \{/,

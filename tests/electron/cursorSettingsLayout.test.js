@@ -201,3 +201,16 @@ test('DeepSeek account copy says browser and external URL is allowlisted', () =>
   const setupBody = functionBodyBeforeMarker(app, 'setupCursorAccountUI', '\nsetupCursorAccountUI();');
   assert.match(setupBody, /window\.tokenMonitor\.openExternal\('https:\/\/platform\.deepseek\.com\/api_keys'\)/);
 });
+
+test('settingsForRenderer strips OpenCode cookies before they reach the renderer', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'electron', 'main.js'), 'utf8');
+  const body = main.slice(
+    main.indexOf('function settingsForRenderer'),
+    main.indexOf('function pushSettingsToRenderer')
+  );
+  assert.ok(body, 'settingsForRenderer should exist');
+  // The raw OpenCode cookie must be reduced to a presence flag, never forwarded verbatim.
+  assert.match(body, /opencodeCookie:[^,}]*\?\s*'set'\s*:\s*''/);
+  // Multi-account profile cookies are redacted the same way.
+  assert.match(body, /opencodeProfiles: redactOpencodeProfilesForRenderer\(/);
+});

@@ -1404,6 +1404,17 @@ function currentWindowToggleShortcutStatus() {
   return windowToggleShortcutStatus(shortcut, registered);
 }
 
+// Strip OpenCode session cookies from a profiles map before it reaches the
+// renderer; the UI only needs the profile name and enabled flag, not the value.
+function redactOpencodeProfilesForRenderer(profiles) {
+  if (!profiles || typeof profiles !== 'object') return profiles;
+  const out = {};
+  for (const [name, profile] of Object.entries(profiles)) {
+    out[name] = { ...profile, cookie: profile && profile.cookie ? 'set' : '' };
+  }
+  return out;
+}
+
 function settingsForRenderer() {
   const deepseekApiKeySource = settings?.deepseekApiKey
     ? 'settings'
@@ -1413,6 +1424,12 @@ function settingsForRenderer() {
   return {
     ...settings,
     deepseekApiKey: '',
+    // Never ship OpenCode session cookies to the renderer; the UI only needs to
+    // know whether a cookie is configured, not its value.
+    opencodeCookie: settings?.opencodeCookie ? 'set' : '',
+    ...(settings?.opencodeProfiles
+      ? { opencodeProfiles: redactOpencodeProfilesForRenderer(settings.opencodeProfiles) }
+      : {}),
     codexManagedAccounts: codexAccountsForRenderer(),
     deepseekApiKeyConfigured: Boolean(currentDeepSeekApiKey()),
     deepseekApiKeySource,

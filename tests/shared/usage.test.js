@@ -269,6 +269,31 @@ test('extractUsageFromTokscale normalizes GitHub Copilot client names', () => {
   assert.equal(period.clients.copilot, 30);
 });
 
+test('extractUsageFromTokscale normalizes Pi, Zed, and Kilo Code, keeping Copilot distinct', () => {
+  const period = extractUsageFromTokscale([
+    { client: 'pi', model: 'claude-opus-4-8', totalTokens: 11 },
+    { client: 'copilot', model: 'gpt-5.5', totalTokens: 13 },
+    { client: 'zed', model: 'claude-opus-4-8', totalTokens: 17 },
+    { client: 'kilocode', model: 'gpt-5.5', totalTokens: 19 }
+  ]);
+
+  assert.equal(period.clients.pi, 11);
+  assert.equal(period.clients.copilot, 13);
+  assert.equal(period.clients.zed, 17);
+  assert.equal(period.clients.kilocode, 19);
+});
+
+test('normalizeClientName keeps kilo distinct from kilocode and maps Oh My Pi to pi', () => {
+  const period = extractUsageFromTokscale([
+    { client: 'kilo', model: 'x', totalTokens: 5 },
+    { client: 'Oh My Pi', model: 'x', totalTokens: 7 }
+  ]);
+
+  assert.equal(period.clients.kilo, 5);
+  assert.equal(period.clients.pi, 7);
+  assert.ok(!('kilocode' in period.clients));
+});
+
 test('extractUsageFromTokscale keeps model usage grouped by client', () => {
   const period = extractUsageFromTokscale([
     { client: 'Hermes', model: 'claude-3-5-sonnet', totalTokens: 100, costUsd: 1.25 },

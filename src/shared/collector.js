@@ -463,6 +463,27 @@ function clientWatchCandidates(clientsCsv) {
   add('qwen', path.join(home, '.qwen', 'projects'));
   add('grok', path.join(process.env.GROK_HOME || path.join(home, '.grok'), 'sessions'));
   add('copilot', path.join(home, '.copilot', 'otel'));
+  add('pi', path.join(home, '.pi', 'agent', 'sessions'), path.join(home, '.omp', 'agent', 'sessions'));
+  // Zed: tokscale reads the XdgData root on every platform AND the native macOS
+  // (Application Support) / Windows (LOCALAPPDATA) roots (see tokscale scanner.rs
+  // cfg(macos)/cfg(windows) blocks) — watch all three so native mac/win users get
+  // seconds-level refresh and a correct waiting/missing status.
+  add(
+    'zed',
+    path.join(home, '.local', 'share', 'zed', 'threads'),
+    path.join(home, 'Library', 'Application Support', 'Zed', 'threads'),
+    path.join(process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'), 'Zed', 'threads')
+  );
+  // Kilo Code (VS Code ext): tokscale 3.1.3 only scans the Linux .config root and
+  // the .vscode-server (remote) root for KiloCode — unlike Cline, it does NOT scan
+  // the native macOS Application Support / Windows %APPDATA% roots. Watching those
+  // would be dead watches + a false "waiting" status, so we mirror exactly what
+  // tokscale reads. (Native mac/win support pending upstream tokscale.)
+  add(
+    'kilocode',
+    path.join(home, '.config', 'Code', 'User', 'globalStorage', 'kilocode.kilo-code', 'tasks'),
+    path.join(home, '.vscode-server', 'data', 'User', 'globalStorage', 'kilocode.kilo-code', 'tasks')
+  );
   add(
     'cline',
     path.join(home, '.config', 'Code', 'User', 'globalStorage', 'saoudrizwan.claude-dev', 'tasks'),

@@ -297,7 +297,7 @@
   gap: 0.55rem;
   width: max-content;
   will-change: transform;
-  animation: tool-marquee 30s linear infinite;
+  animation: tool-marquee 48s linear infinite;
 }
 .tool-marquee:hover .tool-track { animation-play-state: paused; }
 .tool-chip {

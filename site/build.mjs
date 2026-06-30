@@ -9,7 +9,7 @@ const jsFiles = ["scripts/i18n.js", "scripts/theme.js", "scripts/main.js"];
 // Icons are the site's own brand-colored copies under site/assets/icons/ (the app's
 // assets/icons/ stay mask-only currentColor and must not be mutated to serve the web).
 // tray-claude / tray-codex are the real tray glyphs, masked to monochrome in the surfaces section.
-const iconNames = ["claude", "codex", "cursor", "antigravity", "hermes-agent", "opencode", "openclaw", "os-apple", "os-windows", "tray-claude", "tray-codex", "gemini", "xai", "deepseek", "qwen", "moonshot", "mistral", "meta", "zai", "minimax", "cline"];
+const iconNames = ["claude", "codex", "cursor", "antigravity", "hermes-agent", "opencode", "openclaw", "os-apple", "os-windows", "tray-claude", "tray-codex", "gemini", "xai", "deepseek", "qwen", "moonshot", "mistral", "meta", "zai", "minimax", "cline", "copilot", "pi", "zed", "kilocode", "kiro", "mimo-code"];
 const assets = [
   ["assets/app.png", "assets/app.png"], // full app icon used by the Discord mockup
   ["assets/icon.png", "assets/icon.png"], // nav brand mark (glass sigma)

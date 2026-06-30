@@ -202,6 +202,8 @@ Object.assign(els, {
   hubStatusRow: document.getElementById('hubStatusRow'),
   syncClientStatus: document.getElementById('syncClientStatus'),
   hubAddressList: document.getElementById('hubAddressList'),
+  collectionCadenceInput: document.getElementById('collectionCadenceInput'),
+  collectionCadenceNote: document.getElementById('collectionCadenceNote'),
   startupGroup: document.getElementById('startupGroup'),
   startAtLoginInput: document.getElementById('startAtLoginInput'),
   startupNote: document.getElementById('startupNote'),
@@ -3533,6 +3535,16 @@ function syncSettingsForm() {
   els.limitsRefreshInput.value = String(LIMIT_REFRESH_OPTIONS.includes(Number(state.settings.limitsRefreshMs)) ? state.settings.limitsRefreshMs : 300000);
   els.showLimitSourceInput.checked = Boolean(state.settings.showLimitSource);
   els.showActiveAccountInput.checked = Boolean(state.settings.showActiveAccount);
+  if (els.collectionCadenceInput) {
+    const value = Number(state.settings.collectionIntervalMs);
+    const allowed = [300000, 900000, 1800000];
+    els.collectionCadenceInput.value = state.settings.collectionMode === 'interval'
+      ? String(allowed.includes(value) ? value : 300000)
+      : 'live';
+    if (els.collectionCadenceNote) {
+      els.collectionCadenceNote.hidden = els.collectionCadenceInput.value === 'live';
+    }
+  }
   if (els.wslScanInput) els.wslScanInput.checked = state.settings.wslScanEnabled !== false;
   renderWslPanel();
   els.systemGlassInput.checked = state.settings.systemGlass !== false;
@@ -4890,6 +4902,13 @@ els.showLimitSourceInput.addEventListener('change', async () => {
 });
 els.showActiveAccountInput.addEventListener('change', async () => {
   await saveSettings({ showActiveAccount: els.showActiveAccountInput.checked });
+});
+els.collectionCadenceInput?.addEventListener('change', async () => {
+  const value = els.collectionCadenceInput.value;
+  await saveSettings({
+    collectionMode: value === 'live' ? 'live' : 'interval',
+    collectionIntervalMs: value === 'live' ? Number(state.settings.collectionIntervalMs || 300000) : Number(value)
+  });
 });
 els.wslScanInput?.addEventListener('change', async () => {
   await saveSettings({ wslScanEnabled: els.wslScanInput.checked });

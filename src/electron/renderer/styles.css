@@ -385,6 +385,9 @@ body.floating-bubble-collapsed-right .floating-bubble-tab {
 }
 .settings-group { display: grid; min-width: 0; gap: 8px; }
 .settings-group.hidden, .settings-subgroup.hidden, .settings-actions button.hidden { display: none; }
+.settings-collection-cadence {
+  grid-template-columns: minmax(0, 1fr);
+}
 .settings-wsl-block { display: grid; gap: 6px; min-width: 0; }
 .settings-wsl-block.hidden { display: none; }
 .settings-wsl-block .wsl-scan-toggle { justify-content: flex-start; gap: 8px; }

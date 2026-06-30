@@ -306,3 +306,57 @@ test('settingsForRenderer strips OpenCode cookies before they reach the renderer
   // Multi-account profile cookies are redacted the same way.
   assert.match(body, /opencodeProfiles: redactOpencodeProfilesForRenderer\(/);
 });
+
+test('collection cadence setting is exposed in the Collection panel', () => {
+  const html = readRendererFile('index.html');
+  const controls = html.match(/<div class="settings-subgroup settings-collection-cadence"[\s\S]*?<select id="collectionCadenceInput"[\s\S]*?<\/select>[\s\S]*?<\/div>/)?.[0] || '';
+  assert.match(controls, /data-i18n="settings\.collection\.cadence"/);
+  assert.match(controls, /value="live"/);
+  assert.match(controls, /<option value="300000"/);
+  assert.match(controls, /<option value="900000"/);
+  assert.match(controls, /<option value="1800000"/);
+  assert.match(controls, /id="collectionCadenceNote"[\s\S]*hidden/);
+  assert.doesNotMatch(controls, /<option value="3600000"/);
+  assert.doesNotMatch(controls, /id="collectionModeInput"/);
+  assert.doesNotMatch(controls, /id="collectionIntervalInput"/);
+
+  const app = readRendererFile('app.js');
+  const syncBody = functionBody(app, 'syncSettingsForm', 'enabledClientSet');
+  assert.match(syncBody, /collectionCadenceInput/);
+  assert.match(syncBody, /collectionCadenceNote[\s\S]*\.hidden\s*=/);
+
+  const listenerSlice = app.slice(
+    app.indexOf("els.collectionCadenceInput?.addEventListener('change'"),
+    app.indexOf("els.wslScanInput?.addEventListener('change'")
+  );
+  assert.match(listenerSlice, /saveSettings\(\{[\s\S]*collectionMode:/);
+  assert.match(listenerSlice, /collectionIntervalMs:/);
+});
+
+test('main settings normalize collection cadence and restart collectors when it changes', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'electron', 'main.js'), 'utf8');
+  assert.match(main, /function normalizeCollectionMode/);
+  assert.match(main, /function normalizeCollectionIntervalMs/);
+
+  const defaults = main.slice(main.indexOf('function defaultSettings'), main.indexOf('function defaultLimitProviders'));
+  assert.match(defaults, /collectionMode: 'live'/);
+  assert.match(defaults, /collectionIntervalMs: 5 \* 60 \* 1000/);
+
+  const syncCollector = main.slice(main.indexOf('function startSyncCollector'), main.indexOf('function stopHostStats'));
+  assert.match(syncCollector, /intervalMs: collectorIntervalMs\(\)/);
+  assert.match(syncCollector, /watchEnabled: collectorWatchEnabled\(\)/);
+
+  const localCollector = main.slice(main.indexOf('function startLocalCollector'), main.indexOf('function scheduleStreamRetry'));
+  assert.match(localCollector, /intervalMs: collectorIntervalMs\(\)/);
+  assert.match(localCollector, /watchEnabled: collectorWatchEnabled\(\)/);
+
+  const updateHandler = main.slice(main.indexOf("ipcMain.handle('settings:update'"), main.indexOf("ipcMain.handle('appearance:preview'"));
+  assert.match(updateHandler, /previousCollectionMode/);
+  assert.match(updateHandler, /previousCollectionIntervalMs/);
+  assert.match(updateHandler, /normalizedPatch\.collectionMode = normalizeCollectionMode/);
+  assert.match(updateHandler, /normalizedPatch\.collectionIntervalMs = normalizeCollectionIntervalMs/);
+  assert.match(updateHandler, /collectionMode: normalizeCollectionMode/);
+  assert.match(updateHandler, /collectionIntervalMs: normalizeCollectionIntervalMs/);
+  assert.match(updateHandler, /settings\.collectionMode !== previousCollectionMode/);
+  assert.match(updateHandler, /settings\.collectionIntervalMs !== previousCollectionIntervalMs/);
+});

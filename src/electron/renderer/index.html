@@ -268,6 +268,17 @@
               </div>
               <div id="clientDisplayList" class="tool-preference-list"></div>
             </div>
+            <div class="settings-subgroup settings-collection-cadence">
+              <label><span data-i18n="settings.collection.cadence">Collection frequency</span>
+                <select id="collectionCadenceInput">
+                  <option value="live" data-i18n="settings.collection.mode.live">Live watch</option>
+                  <option value="300000" data-i18n="settings.collection.interval.5m">Every 5 minutes</option>
+                  <option value="900000" data-i18n="settings.collection.interval.15m">Every 15 minutes</option>
+                  <option value="1800000" data-i18n="settings.collection.interval.30m">Every 30 minutes</option>
+                </select>
+              </label>
+              <p id="collectionCadenceNote" class="settings-note" data-i18n="settings.collection.modeDesc" hidden>Interval mode turns off file watching.</p>
+            </div>
             <div id="wslScanRow" class="settings-wsl-block hidden">
               <label class="checkbox-label wsl-scan-toggle"><input id="wslScanInput" type="checkbox" /><span data-i18n="settings.collection.wslScan">Scan tools inside WSL</span></label>
               <p class="settings-note" data-i18n="settings.collection.wslScanDesc">When off, Windows no longer scans WSL tools over \\wsl$.</p>

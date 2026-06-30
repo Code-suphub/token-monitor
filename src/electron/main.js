@@ -119,6 +119,9 @@ const CSP_HEADER = [
 const TRAY_CONTENT_VALUES = new Set(['tokens', 'cost', 'both', 'tokensAll', 'costAll', 'bothAll', 'bars', 'barsSession', 'barsWeekly', 'barsAllSessions', 'icon']);
 const HUB_MODE_VALUES = new Set(['local', 'client', 'host']);
 const LANGUAGE_VALUES = new Set(['auto', 'en', 'zh-TW', 'zh-CN']);
+const COLLECTION_MODE_VALUES = new Set(['live', 'interval']);
+const COLLECTION_INTERVAL_OPTIONS = [5 * 60 * 1000, 15 * 60 * 1000, 30 * 60 * 1000];
+const DEFAULT_COLLECTION_INTERVAL_MS = 5 * 60 * 1000;
 const HUB_DEFAULT_PORT = 17321;
 const KNOWN_CLIENT_LIST = KNOWN_CLIENTS.split(',').map((id) => ({ id }));
 const DEFAULT_VIEW_LIST = ['home', 'tool', 'status', 'device', 'model', 'session', 'limits', 'trends'].map((id) => ({ id }));
@@ -180,6 +183,8 @@ function defaultSettings() {
     hiddenHomeModules: defaultHomeModulePreferences().hiddenHomeModules,
     historyEnabled: false,
     wslScanEnabled: parseBoolean(process.env.TOKEN_MONITOR_WSL_SCAN, true),
+    collectionMode: 'live',
+    collectionIntervalMs: 5 * 60 * 1000,
     serviceProviderDisplayOrder: '',
     hiddenServiceProviders: '',
     serviceStatusRefreshMs: 60000,
@@ -217,6 +222,27 @@ function defaultSettings() {
       dismissedVersion: null
     }
   };
+}
+
+function normalizeCollectionMode(value, fallback = 'live') {
+  const next = String(value || '').trim();
+  if (COLLECTION_MODE_VALUES.has(next)) return next;
+  return COLLECTION_MODE_VALUES.has(fallback) ? fallback : 'live';
+}
+
+function normalizeCollectionIntervalMs(value, fallback = DEFAULT_COLLECTION_INTERVAL_MS) {
+  const numeric = Number(value);
+  if (COLLECTION_INTERVAL_OPTIONS.includes(numeric)) return numeric;
+  const fallbackNumeric = Number(fallback);
+  return COLLECTION_INTERVAL_OPTIONS.includes(fallbackNumeric) ? fallbackNumeric : DEFAULT_COLLECTION_INTERVAL_MS;
+}
+
+function collectorIntervalMs() {
+  return normalizeCollectionIntervalMs(settings?.collectionIntervalMs);
+}
+
+function collectorWatchEnabled() {
+  return normalizeCollectionMode(settings?.collectionMode) === 'live';
 }
 
 function defaultLimitProviders() {
@@ -862,6 +888,8 @@ function readSettings() {
     if (saved.wslScanEnabled !== undefined) {
       merged.wslScanEnabled = parseBoolean(saved.wslScanEnabled, true);
     }
+    merged.collectionMode = normalizeCollectionMode(merged.collectionMode);
+    merged.collectionIntervalMs = normalizeCollectionIntervalMs(merged.collectionIntervalMs);
     if (saved.serviceProviderDisplayOrder !== undefined) {
       merged.serviceProviderDisplayOrder = String(saved.serviceProviderDisplayOrder || '');
     }
@@ -1193,10 +1221,10 @@ function startSyncCollector() {
     deviceId: settings.deviceId || defaultDeviceId(),
     agentVersion: appVersion(),
     agentRuntime: 'electron-widget',
-    intervalMs: 5 * 60 * 1000,
+    intervalMs: collectorIntervalMs(),
     historyEnabled: settings.historyEnabled !== false,
     historyIntervalMs: Number(process.env.TOKEN_MONITOR_HISTORY_INTERVAL_MS || 15 * 60 * 1000),
-    watchEnabled: true,
+    watchEnabled: collectorWatchEnabled(),
     watchDebounceMs: 1500,
     limitsEnabled: settings.limitsEnabled !== false,
     wslScanEnabled: settings.wslScanEnabled !== false,
@@ -1236,10 +1264,10 @@ function startHostCollector() {
     deviceId: settings.deviceId || defaultDeviceId(),
     agentVersion: appVersion(),
     agentRuntime: 'electron-widget',
-    intervalMs: 5 * 60 * 1000,
+    intervalMs: collectorIntervalMs(),
     historyEnabled: settings.historyEnabled !== false,
     historyIntervalMs: Number(process.env.TOKEN_MONITOR_HISTORY_INTERVAL_MS || 15 * 60 * 1000),
-    watchEnabled: true,
+    watchEnabled: collectorWatchEnabled(),
     watchDebounceMs: 1500,
     limitsEnabled: settings.limitsEnabled !== false,
     wslScanEnabled: settings.wslScanEnabled !== false,
@@ -1407,10 +1435,10 @@ function startLocalCollector() {
     deviceId: settings.deviceId || defaultDeviceId(),
     agentVersion: appVersion(),
     agentRuntime: 'electron-widget',
-    intervalMs: 5 * 60 * 1000,
+    intervalMs: collectorIntervalMs(),
     historyEnabled: settings.historyEnabled !== false,
     historyIntervalMs: Number(process.env.TOKEN_MONITOR_HISTORY_INTERVAL_MS || 15 * 60 * 1000),
-    watchEnabled: true,
+    watchEnabled: collectorWatchEnabled(),
     watchDebounceMs: 1500,
     limitsEnabled: settings.limitsEnabled !== false,
     wslScanEnabled: settings.wslScanEnabled !== false,
@@ -2361,6 +2389,8 @@ app.whenReady().then(() => {
     const previousLimitsRefreshMs = settings.limitsRefreshMs;
     const previousHistoryEnabled = settings.historyEnabled;
     const previousWslScanEnabled = settings.wslScanEnabled;
+    const previousCollectionMode = settings.collectionMode;
+    const previousCollectionIntervalMs = settings.collectionIntervalMs;
     const previousDeepSeekApiKey = settings.deepseekApiKey;
     const previousMinimaxApiKey = settings.minimaxApiKey;
     const previousCopilotApiToken = settings.copilotApiToken;
@@ -2381,6 +2411,8 @@ app.whenReady().then(() => {
     if (patch.minimaxApiKey !== undefined) normalizedPatch.minimaxApiKey = normalizeMinimaxApiKey(patch.minimaxApiKey);
     if (patch.copilotApiToken !== undefined) normalizedPatch.copilotApiToken = normalizeCopilotApiToken(patch.copilotApiToken);
     if (patch.copilotEnterpriseHost !== undefined) normalizedPatch.copilotEnterpriseHost = normalizeCopilotEnterpriseHost(patch.copilotEnterpriseHost);
+    if (patch.collectionMode !== undefined) normalizedPatch.collectionMode = normalizeCollectionMode(patch.collectionMode, settings.collectionMode);
+    if (patch.collectionIntervalMs !== undefined) normalizedPatch.collectionIntervalMs = normalizeCollectionIntervalMs(patch.collectionIntervalMs, settings.collectionIntervalMs);
     settings = normalizeWindowBehaviorSettings({
       ...settings,
       ...normalizedPatch,
@@ -2412,6 +2444,8 @@ app.whenReady().then(() => {
       hiddenHomeLimitProviders: patch.hiddenHomeLimitProviders !== undefined ? normalizeHiddenLimitProviders(patch.hiddenHomeLimitProviders) : normalizeHiddenLimitProviders(settings.hiddenHomeLimitProviders),
       historyEnabled: parseBoolean(patch.historyEnabled ?? settings.historyEnabled, false),
       wslScanEnabled: parseBoolean(patch.wslScanEnabled ?? settings.wslScanEnabled, true),
+      collectionMode: normalizeCollectionMode(patch.collectionMode ?? settings.collectionMode),
+      collectionIntervalMs: normalizeCollectionIntervalMs(patch.collectionIntervalMs ?? settings.collectionIntervalMs),
       serviceProviderDisplayOrder: patch.serviceProviderDisplayOrder !== undefined ? String(patch.serviceProviderDisplayOrder || '') : (settings.serviceProviderDisplayOrder || ''),
       hiddenServiceProviders: patch.hiddenServiceProviders !== undefined ? String(patch.hiddenServiceProviders || '') : (settings.hiddenServiceProviders || ''),
       serviceStatusRefreshMs: normalizeServiceStatusRefreshMs(patch.serviceStatusRefreshMs ?? settings.serviceStatusRefreshMs),
@@ -2479,6 +2513,8 @@ app.whenReady().then(() => {
       settings.limitsRefreshMs !== previousLimitsRefreshMs ||
       settings.historyEnabled !== previousHistoryEnabled ||
       settings.wslScanEnabled !== previousWslScanEnabled ||
+      settings.collectionMode !== previousCollectionMode ||
+      settings.collectionIntervalMs !== previousCollectionIntervalMs ||
       settings.deepseekApiKey !== previousDeepSeekApiKey ||
       settings.minimaxApiKey !== previousMinimaxApiKey ||
       settings.copilotApiToken !== previousCopilotApiToken ||

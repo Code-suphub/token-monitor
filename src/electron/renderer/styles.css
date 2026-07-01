@@ -315,7 +315,7 @@ body.floating-bubble-collapsed-right .floating-bubble-tab {
   pointer-events: none;
   transition-delay: 0ms;
 }
-.icon-button, .refresh-button, .settings-actions button, .shortcut-recorder button, .tab, .mode-button {
+.icon-button, .refresh-button, .settings-actions button, .shortcut-recorder button, .tab, .mode-button, .home-empty-action, .home-module-empty-action {
   border: 1px solid var(--line);
   border-radius: 7px;
   background: rgba(var(--overlay-rgb), var(--control-alpha));
@@ -1975,7 +1975,16 @@ body.floating-bubble-collapsed-right .floating-bubble-tab {
   display: flex;
   min-height: 36px;
   align-items: center;
+  gap: 8px;
   color: var(--muted);
+  font-size: 11px;
+}
+.home-module-empty-action {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border-color: rgba(var(--accent-rgb), 0.24);
+  color: var(--green);
   font-size: 11px;
 }
 .home-empty {

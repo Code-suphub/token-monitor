@@ -178,7 +178,7 @@ function normalizeInitialViewValue(value, allowed, fallback) {
   return allowed.has(raw) ? raw : fallback;
 }
 
-const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, viewSwitcherHasOpened: false, resetCreditsTooltipHasOpened: false, resetCreditsTooltipActive: false, resetCreditsTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistoryPreviewKey: '', homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', customPricingExpanded: false, opencodeProfileCount: 0, opencodeCookieExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
+const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, viewSwitcherHasOpened: false, resetCreditsTooltipHasOpened: false, resetCreditsTooltipActive: false, resetCreditsTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistoryPreviewKey: '', homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', customPricingExpanded: false, opencodeProfileCount: 0, opencodeCookieExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, showLiveDot: true, showToolIcons: true, titleIconOnly: false, settingsInTitlebar: false };
 let preferenceDrag = null;
@@ -1933,6 +1933,19 @@ function openHomeSettings() {
   });
 }
 
+function openTrendSettings() {
+  if (!els.settingsPanel) return;
+  els.settingsPanel.classList.remove('hidden');
+  els.shell.classList.add('settings-open');
+  els.shell.style.transform = 'translateZ(0)';
+  setSettingsSectionExpanded('main', true);
+  state.trendSettingsExpanded = true;
+  syncSettingsForm();
+  requestAnimationFrame(() => {
+    document.getElementById('trendSettingsContainer')?.scrollIntoView({ block: 'nearest' });
+  });
+}
+
 async function loadHomeHistory() {
   if (state.homeHistoryBusy || !window.tokenMonitor.getDashboardHistory) return;
   if (!homeOverviewApi.shouldFetchHomeHistory({
@@ -2149,6 +2162,7 @@ function homeModuleShell(kind, title, viewId, meta = '') {
     if (setBreakdown(viewId)) render();
   });
   module.addEventListener('keydown', (event) => {
+    if (event.target !== module) return;
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     if (setBreakdown(viewId)) render();
@@ -2453,14 +2467,29 @@ function setupHomeActivityScroller(scroller) {
 
 function renderHomeTrendsModule() {
   const charts = window.TokenMonitorUsageCharts;
+  const historyEnabled = state.settings?.historyEnabled !== false;
   const preview = state.stats?.historyPreview || { daily: [] };
   const history = homeOverviewApi.pickHomeHistory(state.homeHistory, preview);
   const points = history.daily || [];
-  if (points.length === 0) {
+  if (!historyEnabled || points.length === 0) {
     const { module, body } = homeModuleShell('trends', t('home.activity'), 'trends');
     const empty = document.createElement('div');
     empty.className = 'home-module-empty';
-    empty.textContent = t('home.noHistory');
+    if (historyEnabled) {
+      empty.textContent = state.trendsActivating ? t('home.historyLoading') : t('home.noHistory');
+    } else {
+      const text = document.createElement('span');
+      text.textContent = t('home.historyDisabled');
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'home-module-empty-action';
+      action.textContent = t('home.enableHistory');
+      action.addEventListener('click', (event) => {
+        event.stopPropagation();
+        openTrendSettings();
+      });
+      empty.append(text, action);
+    }
     body.append(empty);
     return module;
   }
@@ -4121,8 +4150,10 @@ function renderTrendSettingsList() {
   input.type = 'checkbox';
   input.checked = state.settings?.historyEnabled !== false;
   input.addEventListener('change', async () => {
-    await setTrendEnabled(input.checked);
-    await refreshStats({ force: true });
+    const enabling = input.checked;
+    await setTrendEnabled(enabling);
+    state.trendsActivating = enabling;
+    renderHomeIfVisible();
   });
   const text = document.createElement('span');
   text.textContent = t('settings.views.enableTrend');
@@ -5075,6 +5106,10 @@ window.tokenMonitor.onStatsPush?.((payload) => {
     state.streamFailure = null;
     if (payload.data?.mode) state.mode = payload.data.mode;
     state.stats = payload.data.stats;
+    // Progressive mid-tick pushes never carry a fresh history scan (see
+    // AGENTS.md collector notes), so only the final push can retire the
+    // "just turned trends on" loading state without a flash back to empty.
+    if (payload.data?.reason !== 'progress') state.trendsActivating = false;
   } else {
     return;
   }

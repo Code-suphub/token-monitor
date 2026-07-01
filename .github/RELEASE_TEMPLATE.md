@@ -5,19 +5,15 @@
 ## What's changed
 
 ### Added
-- **Kiro usage tracking:** collect Kiro CLI, Kiro IDE globalStorage, and `kiro-cli` usage, including Kiro activity from running WSL distros on Windows.
-- **Kiro limits support:** show Kiro quota windows in AI Tool Limits, Home, and tray/floating limit bars. (#41)
-- **Customizable Home modules:** Settings -> Main Screen now lets you choose which Home modules appear, reorder them, and separately tune Home limit providers.
+- **Codex account toggles:** Settings -> Accounts -> Codex Accounts now lets you enable or disable tracking for each saved Codex account without removing the account.
+- **Collection frequency:** Settings -> Collection now lets you choose how often usage is collected: live tracking by default, or every 5, 15, or 30 minutes.
+- **Codex reset credits:** AI Tool Limits now shows Codex reset counts when the signed-in account reports them.
 
 ### Improved
-- Tokscale is bundled at **4.0.5**, including the MiMo Code scan-path fix.
-- Kiro watch paths now cover CLI sessions, IDE globalStorage, and `kiro-cli` databases so usage refreshes within seconds after new activity.
-- MiMo Code scanning now uses the correct `~/.local/share/mimocode` data path while remaining available as an opt-in tracked tool.
+- The main view switcher and renderer icons have smoother hover states and more consistent labels.
 
 ### Fixed
-- Home no longer blanks the Activity/Trend module during cold starts before full history loads. (#39)
-- Broken stdout/stderr pipes no longer show noisy main-process error dialogs. (#35)
-- MiMo Code is no longer tracked by default because its database can import Claude Code sessions and double-count Claude usage; it can still be enabled from Settings.
+- Deleted OpenCode profiles no longer reappear after restart when they match the old default cookie, and enabling or disabling a profile now updates the limits source immediately.
 
 ## Which file should I download?
 
@@ -52,19 +48,15 @@ open-source: https://github.com/junhoyeo/tokscale
 ## 更新内容
 
 ### 新增
-- **Kiro 用量追踪：** 采集 Kiro CLI、Kiro IDE globalStorage 与 `kiro-cli` 用量，并在 Windows 上自动并入运行中的 WSL 发行版里的 Kiro 用量。
-- **Kiro 额度支持：** 在 AI 工具限制、主页、托盘/悬浮额度条中显示 Kiro 额度窗口。(#41)
-- **主页模块自定义：** 设置 -> 主界面 现在可以选择主页显示哪些模块、调整顺序，并单独配置主页额度提供者。
+- **Codex 账号追踪开关：** 设置 -> 账号 -> Codex 账号 现在可以对已添加的 Codex 账号逐一启用或停用追踪，无需移除账号。
+- **采集频率：** 设置 -> 采集 现在可以选择用量采集频率：默认即时追踪，也可以改为每 5、15、30 分钟采集。
+- **Codex 重置次数：** AI 工具限制现在会在账号提供数据时显示 Codex 重置次数。
 
 ### 改进
-- Tokscale 已内置升级到 **4.0.5**，包含 MiMo Code 扫描路径修复。
-- Kiro 监听路径现在覆盖 CLI sessions、IDE globalStorage 与 `kiro-cli` 数据库，新活动后可在数秒内刷新用量。
-- MiMo Code 扫描现在使用正确的 `~/.local/share/mimocode` 数据路径，并继续作为可手动开启的追踪工具提供。
+- 主视图切换器和渲染器图标的 hover 状态更顺滑，标签也更一致。
 
 ### 修复
-- 主页冷启动时不再因为完整历史尚未加载而清空活动/趋势模块。(#39)
-- stdout/stderr 管道断开时不再弹出嘈杂的主进程错误提示。(#35)
-- MiMo Code 不再默认追踪，因为它的数据库可能导入 Claude Code session 并造成 Claude 用量重复计算；仍可在设置中手动启用。
+- 删除 OpenCode 账号设定档后，如果它对应旧版默认 cookie，重启后不再重新出现；启用或停用设定档后，额度来源也会立即更新。
 
 ## 应该下载哪个文件？
 

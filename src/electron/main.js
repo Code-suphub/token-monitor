@@ -44,7 +44,7 @@ const {
   getTokscaleStatus,
   resetToBundled
 } = require('../shared/tokscaleUpdater');
-const { checkLatestRelease } = require('../shared/appUpdater');
+const { checkLatestRelease, shouldSkipAppUpdateCheck } = require('../shared/appUpdater');
 const cursorAuth = require('../shared/cursorAuth');
 const cursorProbe = require('../shared/cursorProbe');
 const opencodeWeb = require('../shared/opencodeWeb');
@@ -2046,9 +2046,9 @@ async function downloadTokscaleFromNpm() {
   }
 }
 
-const APP_UPDATE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 let appUpdateCheckInFlight = false;
 let appUpdateLastError = null;
+let appUpdateBackgroundTimer = null;
 
 function deriveAppUpdateState() {
   const block = settings?.appUpdate || {};
@@ -2078,11 +2078,14 @@ function sendAppUpdatePush() {
 async function runAppUpdateCheck({ force = false } = {}) {
   if (appUpdateCheckInFlight) return deriveAppUpdateState();
   const block = settings?.appUpdate || {};
-  if (!force && block.lastCheckedAt) {
-    const last = Date.parse(block.lastCheckedAt);
-    if (Number.isFinite(last) && Date.now() - last < APP_UPDATE_COOLDOWN_MS) {
-      return deriveAppUpdateState();
-    }
+  if (shouldSkipAppUpdateCheck({
+    force,
+    lastCheckedAt: block.lastCheckedAt,
+    latest: block.lastKnownLatest,
+    dismissedVersion: block.dismissedVersion,
+    currentVersion: app.getVersion()
+  })) {
+    return deriveAppUpdateState();
   }
   appUpdateCheckInFlight = true;
   appUpdateLastError = null;
@@ -2113,6 +2116,12 @@ async function runAppUpdateCheck({ force = false } = {}) {
 
 function maybeRunBackgroundUpdateCheck() {
   runAppUpdateCheck({ force: false }).catch(() => {});
+}
+
+function startAppUpdateBackgroundChecks() {
+  if (appUpdateBackgroundTimer) return;
+  appUpdateBackgroundTimer = setInterval(maybeRunBackgroundUpdateCheck, 60 * 60 * 1000);
+  appUpdateBackgroundTimer.unref?.();
 }
 
 function dismissAppUpdateVersion(version) {
@@ -3069,11 +3078,12 @@ app.whenReady().then(() => {
   ipcMain.on('dashboard:close', (event) => { BrowserWindow.fromWebContents(event.sender)?.close(); });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   maybeRunBackgroundUpdateCheck();
+  startAppUpdateBackgroundChecks();
 });
 
 app.on('second-instance', focusExistingWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); unregisterWindowToggleShortcut(); stopAll(); });
+app.on('before-quit', () => { quitRequested = true; if (rateRefreshTimer) clearInterval(rateRefreshTimer); if (appUpdateBackgroundTimer) clearInterval(appUpdateBackgroundTimer); unregisterWindowToggleShortcut(); stopAll(); });
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.once(signal, requestAppQuit);
 }

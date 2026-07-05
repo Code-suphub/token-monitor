@@ -469,11 +469,52 @@
     ).join('');
   }
 
+  function statCardColumnWidths(contentWidths, options) {
+    const widths = (Array.isArray(contentWidths) ? contentWidths : [])
+      .map((width) => Math.max(0, n(width)));
+    if (!widths.length) return [];
+    const totalWidth = Math.max(0, n(options && options.totalWidth));
+    if (totalWidth <= 0) return widths.map(() => 0);
+    const equalWidth = totalWidth / widths.length;
+    const minWidth = Math.max(0, n(options && options.minWidth) || equalWidth * 0.72);
+    const safety = Math.max(0, n(options && options.safety));
+    const required = widths.map((width) => width + safety);
+    const columns = widths.map(() => equalWidth);
+
+    for (let i = 0; i < required.length; i++) {
+      if (required[i] > equalWidth) columns[i] = required[i];
+    }
+
+    let overflow = columns.reduce((sum, width) => sum + width, 0) - totalWidth;
+    if (overflow > 0) {
+      const capacities = required.map((width, index) =>
+        Math.max(0, columns[index] - Math.max(width, minWidth))
+      );
+      const totalCapacity = capacities.reduce((sum, width) => sum + width, 0);
+      if (totalCapacity > 0) {
+        for (let i = 0; i < columns.length; i++) {
+          columns[i] -= Math.min(capacities[i], overflow * (capacities[i] / totalCapacity));
+        }
+      }
+    }
+
+    const sum = columns.reduce((total, width) => total + width, 0);
+    if (sum > totalWidth && sum > 0) {
+      const scale = totalWidth / sum;
+      for (let i = 0; i < columns.length; i++) columns[i] *= scale;
+    }
+
+    const rounded = columns.map((width) => Math.round(width * 10) / 10);
+    const delta = Math.round((totalWidth - rounded.reduce((sumWidth, width) => sumWidth + width, 0)) * 10) / 10;
+    rounded[rounded.length - 1] = Math.max(0, Math.round((rounded[rounded.length - 1] + delta) * 10) / 10);
+    return rounded;
+  }
+
   return {
     weekStartKey, dailyBarsChart, candleChart, contribHeatmap, rollingYearHeatmap, statsCards, sparklinePreview,
     areaLineChart, areaLineSvg,
     selectPreviewSeries, patchTodayBar, sparklineSvg,
     clientColors, fallbackModelColors, modelVendorFor, modelColor, clampDaily,
-    barsChartSvg, candleChartSvg, heatmapSvg, statsCardsHtml
+    barsChartSvg, candleChartSvg, heatmapSvg, statsCardsHtml, statCardColumnWidths
   };
 });

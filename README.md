@@ -102,16 +102,19 @@ Most usage monitors are useful on the machine they run on. Token Monitor is buil
 
 ## Installation
 
-### Local mode — single device
+Download from [GitHub Releases](https://github.com/Javis603/token-monitor/releases).
 
-The default. No hub, no agent, no config.
+- **macOS (Apple Silicon)** — `.dmg`, signed and notarized
+- **Windows 10/11** — setup `.exe`; signing is being prepared, so SmartScreen may appear
+- **Linux x64** — `.AppImage`
 
-```bash
-npm install
-npm start
-```
+Packaged builds check GitHub Releases automatically. When an update is available, the app shows an update indicator; supported platforms can also install from Settings → General.
 
-### Multi-device sync
+### First run
+
+Local mode is the default: launch the app and it starts tracking this device. No hub, agent, or config required.
+
+## Multi-device sync
 
 Pick ONE hub backend that all your devices (and any headless agents) connect to. On each device, open the widget and pick a mode under Settings → Multi-device Sync. The widget contributes this device's usage automatically; run `npm run agent` only on machines without a widget.
 
@@ -146,9 +149,7 @@ npx wrangler deploy
 
 Paste the deployed URL into each device's widget at Settings → Multi-device Sync. See [worker/README.md](worker/README.md) for the iOS widget recipe and endpoint reference, or [docs/API.md](docs/API.md) for the hub HTTP API.
 
-## Desktop installer
-
-You can download the app from the [releases page](https://github.com/Javis603/token-monitor/releases). macOS builds are signed and notarized; Windows signing is being prepared, and Linux ships as an AppImage. The app checks GitHub Releases and can install supported in-app updates from Settings → App Updates. Other platforms run from source via `npm start`.
+## App data
 
 App state lives in the OS user-data dir — delete it along with the app to fully uninstall.
 

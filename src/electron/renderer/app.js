@@ -5901,7 +5901,7 @@ function pickConfiguredSessionProviders(stats, configOrder) {
   return result;
 }
 
-function renderAllSessionsIcon(stats, height = 44, configOrder, colors = {}, options = {}) {
+function renderAllSessionsIcon(stats, height = 44, configOrder, colors = {}) {
   const trackColor = colors.track || 'rgba(0, 0, 0, 0.32)';
   const fillColor = colors.fill || 'rgba(0, 0, 0, 1)';
   const picks = pickConfiguredSessionProviders(stats, configOrder);
@@ -5910,7 +5910,7 @@ function renderAllSessionsIcon(stats, height = 44, configOrder, colors = {}, opt
   if (picks.length === 1) return renderBarsIcon(stats, height, () => picks[0].provider, colors);
 
   const { trayBarFillWidth, trayBarsLayout } = window.TokenMonitorTrayBars;
-  const layout = trayBarsLayout(height, { contentOnly: options.contentOnly === true });
+  const layout = trayBarsLayout(height, { contentOnly: true });
   const canvas = document.createElement('canvas');
   canvas.width = layout.width;
   canvas.height = layout.height;
@@ -5918,8 +5918,7 @@ function renderAllSessionsIcon(stats, height = 44, configOrder, colors = {}, opt
   ctx.clearRect(0, 0, layout.width, layout.height);
 
   // No per-row icons — order in the dropdown identifies which row is which tool.
-  // Default layout keeps menubar width stable; the bubble can request content-only
-  // output so the mini-window hugs just the visible bars.
+  // Keep the canvas to just the bars, so the tray does not reserve a blank icon area.
   function drawBar(y, percent) {
     roundedRectPath(ctx, layout.barsX, y, layout.barsWidth, layout.barHeight, layout.radius);
     ctx.fillStyle = trackColor;

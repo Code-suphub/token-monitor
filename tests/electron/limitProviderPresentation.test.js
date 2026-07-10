@@ -328,9 +328,11 @@ test('Codex limits render as one provider group with account subrows', () => {
 test('tray all-sessions mode can consider multiple providers for one configured id', () => {
   const app = readRendererFile('app.js');
   const pickConfigured = functionBody(app, 'pickConfiguredSessionProviders', 'renderAllSessionsIcon');
+  const renderAllSessions = functionBody(app, 'renderAllSessionsIcon', 'renderLimitSessionsIcon');
 
   assert.match(pickConfigured, /providersByLimitProviderId\(providers\)/);
   assert.doesNotMatch(pickConfigured, /new Map\(providers\.map\(\(p\) => \[String\(p\.provider\)\.toLowerCase\(\), p\]\)\)/);
+  assert.match(renderAllSessions, /trayBarsLayout\(height, \{ contentOnly: true \}\)/);
 });
 
 test('limit percent tray mode renders provider icons into a generated tray image', () => {

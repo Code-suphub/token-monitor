@@ -132,7 +132,7 @@ const CSP_HEADER = [
   "form-action 'none'",
   "frame-ancestors 'none'"
 ].join('; ');
-const TRAY_CONTENT_VALUES = new Set(['tokens', 'cost', 'both', 'tokensAll', 'costAll', 'bothAll', 'bars', 'barsSession', 'barsWeekly', 'barsAllSessions', 'icon']);
+const TRAY_CONTENT_VALUES = new Set(['tokens', 'cost', 'both', 'tokensAll', 'costAll', 'bothAll', 'limitsAllSessions', 'bars', 'barsSession', 'barsWeekly', 'barsAllSessions', 'icon']);
 const HUB_MODE_VALUES = new Set(['local', 'client', 'host']);
 const LANGUAGE_VALUES = new Set(LANGUAGE_OPTIONS.map((option) => option.value));
 const COLLECTION_MODE_VALUES = new Set(['live', 'interval']);
@@ -1626,14 +1626,23 @@ function updateTrayDisplay() {
   if (!tray || tray.isDestroyed()) return;
   const mode = settings?.trayContent || 'tokens';
   const currency = normalizeCurrency(settings?.currency);
-  const text = formatTrayText(latestStats, mode, currency);
+  const limitText = formatTrayText(latestStats, mode, currency, {
+    limitProviderOrder: settings?.limitProviderOrder,
+    limitProviders: settings?.limitProviders,
+    showLimitUsed: settings?.showLimitUsed
+  });
+  // A renderer-generated icon is cached in the main process. Only reuse it
+  // while the current stats still have quota text; otherwise it can outlive
+  // the provider data that generated it.
+  const trayImageMode = mode === 'limitsAllSessions' && Boolean(limitText) && providerTrayIcons[mode];
+  const text = trayImageMode ? '' : limitText;
   if (process.platform === 'darwin') tray.setTitle(text);
   // Tooltip always shows a useful summary, even in icon-only mode where setTitle is blank.
   const tip = formatTrayText(latestStats, 'both', currency);
   tray.setToolTip(`Token Monitor - ${tip}`);
   // Icon: rendered bars image in bar modes, otherwise the app icon.
   let icon = null;
-  if ((mode === 'bars' || mode === 'barsSession' || mode === 'barsWeekly' || mode === 'barsAllSessions') && providerTrayIcons[mode]) {
+  if (((mode === 'bars' || mode === 'barsSession' || mode === 'barsWeekly' || mode === 'barsAllSessions') && providerTrayIcons[mode]) || trayImageMode) {
     icon = providerTrayIcons[mode];
   } else {
     const usageIconId = pickUsageTrayIconId(latestStats, mode, Object.keys(providerTrayIcons));

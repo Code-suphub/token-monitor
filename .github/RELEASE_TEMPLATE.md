@@ -5,13 +5,18 @@
 ## What's changed
 
 ### Added
-- **App Updates:** Settings now includes App Updates backed by GitHub releases, with check, download, dismiss, and restart-to-install flows on supported packaged builds. (#99)
-- **Codex local account switching:** On the Limits page, hover a Codex account email and click Switch to make it this device's local Codex account; restart Codex for the change to take effect. (#92)
-- **Z.ai Team Account:** AI Tool Limits can track GLM Team Coding Plan quota with the required BigModel organization and project credentials. (#94)
-- **Linux start at login:** AppImage builds now support the Startup -> Start at login setting, with a note when moving or renaming the AppImage would break the autostart entry. (#82)
+- **Compact total tokens:** Appearance now offers **Show compact total tokens** for an abbreviated total-token display. (#114)
+- **Tray quota percentages:** Choose **Limits: session limits for the first two tools** as the tray content to see their session-limit percentages at a glance. (#102)
+- **Codex email masking:** AI Tool Limits can now mask Codex account email addresses.
 
 ### Improved
-- **Codex account cards:** Managed Codex account chips stay compact on hover, and switching accounts refreshes only the selected Codex account instead of disturbing the rest of the provider list. (#101)
+- **Codex account sign-in:** The browser sign-in flow now exposes an openable/copyable login link, tries available Codex installations, and supports the Codex CLI bundled with the ChatGPT macOS app. (#110, #113)
+
+### Fixed
+- **Codex account badge:** The local-account checkmark no longer appears for a single Codex account; it is shown only to distinguish accounts in a multi-account group.
+- **Synced limits:** Fresh provider data now takes precedence over stale device records in multi-device sync. (#111)
+- **Antigravity CLI usage:** Antigravity CLI usage is now counted under Antigravity, including CLI-only WSL homes. (#107)
+- **Tray limit indicators:** Stale quota-bar icons and empty icon spacing no longer linger in the system tray. (#89)
 
 ## Which file should I download?
 
@@ -50,13 +55,18 @@ open-source: https://github.com/junhoyeo/tokscale
 ## 更新内容
 
 ### 新增
-- **应用更新：** 设置中新增 App Updates，可基于 GitHub releases 检查更新，并在支持的打包版本上下载、忽略或重启安装更新。（#99）
-- **Codex 本机账号切换：** 在额度页悬停对应 Codex 账号的 email，点击「切换账号」即可将它设为本机 Codex 账号；切换后需要重启 Codex 才会生效。（#92）
-- **Z.ai 团队账号：** AI 工具额度现在可追踪 GLM 团队 Coding Plan 额度，并支持填写所需的 BigModel organization / project 凭证。（#94）
-- **Linux 登录时启动：** AppImage 版本现在支持「启动 -> 登录时启动」，并会提示移动或重命名 AppImage 后自启项会失效。（#82）
+- **简写总 Token：** 外观设置新增「显示简写总 Token」，可将总 Token 显示为简写形式。（#114）
+- **托盘额度百分比：** 托盘内容可选择「额度：前两个工具的单次额度」，一眼查看前两个工具的单次额度百分比。（#102）
+- **Codex 邮箱遮罩：** AI 工具额度现在可以遮罩 Codex 账号邮箱地址。
 
 ### 改进
-- **Codex 账号卡片：** 受管 Codex 账号的悬浮标签现在更紧凑；切换账号后只刷新选中的 Codex 账号，不会影响其他 provider 列表。（#101）
+- **Codex 账号登录：** 浏览器登录流程现在会显示可打开或复制的登录链接、尝试可用的 Codex 安装，并支持 macOS ChatGPT app 内置的 Codex CLI。（#110、#113）
+
+### 修复
+- **Codex 账号标记：** 只有一个 Codex 账号时，本机账号的 ✓ 不再错误显示；仅在多账号列表中用于区分账号。
+- **同步额度：** 多设备同步时，最新的 provider 数据现在会优先于过期设备记录。（#111）
+- **Antigravity CLI 用量：** Antigravity CLI 用量现在会计入 Antigravity，且支持仅有 CLI 数据的 WSL 主目录。（#107）
+- **托盘额度指示器：** 系统托盘不再残留过期的额度条图标或空白图标间距。（#89）
 
 ## 应该下载哪个文件？
 

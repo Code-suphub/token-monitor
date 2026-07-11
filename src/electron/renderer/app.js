@@ -73,7 +73,8 @@ const LIMIT_PROVIDERS = [
   { id: 'zai', label: 'GLM' },
   { id: 'zaiteam', label: 'GLM Team' },
   { id: 'volcengine', label: 'Volcengine' },
-  { id: 'qoder', label: 'Qoder' }
+  { id: 'qoder', label: 'Qoder' },
+  { id: 'kimi', label: 'Kimi' }
 ];
 const DEFAULT_LIMIT_PROVIDER_ORDER = LIMIT_PROVIDERS.map((provider) => provider.id).join(',');
 const limitProviderOrderApi = window.TokenMonitorLimitProviderOrder;
@@ -188,7 +189,7 @@ function normalizeInitialViewValue(value, allowed, fallback) {
   return allowed.has(raw) ? raw : fallback;
 }
 
-const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, viewSwitcherHasOpened: false, resetCreditsTooltipHasOpened: false, resetCreditsTooltipActive: false, resetCreditsTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistoryPreviewKey: '', homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, codexSystemSwitchingAccountId: '', codexSystemSwitchErrorAccountId: '', codexSystemSwitchError: '', codexSwitchPopoverHasOpened: false, codexSwitchPopoverActive: false, codexSwitchPopoverRenderPending: false, customPricingExpanded: false, opencodeProfileCount: 0, opencodeCookieExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, qoderAccountExpanded: false, qoderPendingCheckSince: 0, copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
+const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, viewSwitcherHasOpened: false, resetCreditsTooltipHasOpened: false, resetCreditsTooltipActive: false, resetCreditsTooltipRenderPending: false, settings: null, stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistoryPreviewKey: '', homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, tokscaleStatus: null, tokscaleCheck: null, tokscaleBusy: false, hubInfo: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, codexSystemSwitchingAccountId: '', codexSystemSwitchErrorAccountId: '', codexSystemSwitchError: '', codexSwitchPopoverHasOpened: false, codexSwitchPopoverActive: false, codexSwitchPopoverRenderPending: false, customPricingExpanded: false, opencodeProfileCount: 0, opencodeCookieExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false };
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, showLiveDot: true, showToolIcons: true, titleIconOnly: true, showCompactTotalTokens: false, settingsInTitlebar: false };
 let preferenceDrag = null;
@@ -388,11 +389,12 @@ function settingsSectionSummary(section) {
     const zaiteamLinked = externalProviderAccountLinked('zaiteam');
     const volcengineLinked = externalProviderAccountLinked('volcengine');
     const qoderLinked = externalProviderAccountLinked('qoder');
+    const kimiLinked = externalProviderAccountLinked('kimi');
     const copilotLinked = copilotAccountLinked();
     const codexLinked = (state.settings?.codexManagedAccounts || []).length > 0;
     return t('settings.summary.accounts', {
-      linked: (codexLinked ? 1 : 0) + (cursorLinked ? 1 : 0) + (opencodeCount > 0 ? 1 : 0) + (deepseekLinked ? 1 : 0) + (minimaxLinked ? 1 : 0) + (zaiLinked ? 1 : 0) + (zaiteamLinked ? 1 : 0) + (volcengineLinked ? 1 : 0) + (qoderLinked ? 1 : 0) + (copilotLinked ? 1 : 0),
-      total: 10
+      linked: (codexLinked ? 1 : 0) + (cursorLinked ? 1 : 0) + (opencodeCount > 0 ? 1 : 0) + (deepseekLinked ? 1 : 0) + (minimaxLinked ? 1 : 0) + (zaiLinked ? 1 : 0) + (zaiteamLinked ? 1 : 0) + (volcengineLinked ? 1 : 0) + (qoderLinked ? 1 : 0) + (kimiLinked ? 1 : 0) + (copilotLinked ? 1 : 0),
+      total: 11
     });
   }
   if (section === 'limits') {
@@ -3414,6 +3416,7 @@ async function refreshStats(options = {}) {
     renderExternalProviderStatus('zaiteam');
     renderExternalProviderStatus('volcengine');
     renderExternalProviderStatus('qoder');
+    renderExternalProviderStatus('kimi');
     renderCopilotStatus();
     maybeUpdateBarsIcon();
     if (feedback) settleRefreshButtonState('refreshed');
@@ -4268,6 +4271,7 @@ function syncSettingsForm() {
   renderExternalProviderStatus('zaiteam');
   renderExternalProviderStatus('volcengine');
   renderExternalProviderStatus('qoder');
+  renderExternalProviderStatus('kimi');
   renderCopilotStatus();
   renderViewPreferences();
   renderToolPreferences();
@@ -5856,6 +5860,7 @@ window.tokenMonitor.onStatsPush?.((payload) => {
     renderExternalProviderStatus('zaiteam');
     renderExternalProviderStatus('volcengine');
     renderExternalProviderStatus('qoder');
+    renderExternalProviderStatus('kimi');
     renderCopilotStatus();
     maybeUpdateBarsIcon();
   }
@@ -6456,6 +6461,11 @@ const externalLimitAccountConfig = {
     configuredKey: 'qoderCookieConfigured',
     sourceKey: 'qoderCookieSource',
     pendingKey: 'qoderPendingCheckSince'
+  },
+  kimi: {
+    configuredKey: 'kimiApiKeyConfigured',
+    sourceKey: 'kimiApiKeySource',
+    pendingKey: 'kimiPendingCheckSince'
   }
 };
 
@@ -6600,6 +6610,10 @@ function qoderPlatformUrl() {
 function updateQoderUsagePageHint() {
   const hint = document.getElementById('qoderUsagePageHint');
   if (hint) hint.textContent = qoderUsagePagePath();
+}
+
+function kimiPlatformUrl() {
+  return 'https://www.kimi.com/code/console';
 }
 
 function renderExternalProviderStatus(providerName) {
@@ -7658,6 +7672,53 @@ function setupCursorAccountUI() {
     });
   }
 
+  const kimiToggle = document.getElementById('kimiSettingsToggle');
+  if (kimiToggle) {
+    kimiToggle.addEventListener('click', () => setExternalAccountExpanded('kimi', !state.kimiAccountExpanded));
+    setExternalAccountExpanded('kimi', false);
+    renderExternalProviderStatus('kimi');
+
+    document.getElementById('kimiOpenBrowser').addEventListener('click', () => {
+      window.tokenMonitor.openExternal(kimiPlatformUrl());
+    });
+
+    document.getElementById('kimiLogoutButton').addEventListener('click', async () => {
+      await saveSettings({ kimiApiKey: '' });
+      clearExternalProviderCheckPending('kimi');
+      clearExternalProviderPendingStatus('kimi');
+      renderExternalProviderStatus('kimi');
+      await refreshStats({ force: true });
+    });
+
+    document.getElementById('kimiRefreshButton').addEventListener('click', async () => {
+      await refreshStats({ force: true });
+    });
+
+    document.getElementById('kimiApiKeySubmit').addEventListener('click', async () => {
+      const input = document.getElementById('kimiApiKeyInput');
+      const errorEl = document.getElementById('kimiErrorMessage');
+      errorEl.classList.add('hidden');
+      if (!String(input.value || '').trim()) {
+        errorEl.textContent = t('settings.kimi.statusNotSet');
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      try {
+        markExternalProviderCheckPending('kimi');
+        await saveSettings({ kimiApiKey: input.value });
+        input.value = '';
+        renderExternalProviderStatus('kimi');
+        await refreshStats({ force: true });
+        setExternalAccountExpanded('kimi', !externalProviderAccountLinked('kimi'));
+        renderExternalProviderStatus('kimi');
+      } catch (err) {
+        clearExternalProviderCheckPending('kimi');
+        errorEl.textContent = t('settings.kimi.saveFailed', { message: err.message });
+        errorEl.classList.remove('hidden');
+      }
+    });
+  }
+
   const copilotToggle = document.getElementById('copilotSettingsToggle');
   if (copilotToggle) {
     copilotToggle.addEventListener('click', () => setCopilotAccountExpanded(!state.copilotAccountExpanded));
@@ -7806,7 +7867,8 @@ function initSettingsAnimationWrappers() {
     '#zaiManualPanel',
     '#zaiteamManualPanel',
     '#volcengineManualPanel',
-    '#qoderManualPanel'
+    '#qoderManualPanel',
+    '#kimiManualPanel'
   ].join(', ');
 
   document.querySelectorAll(selectors).forEach(el => {

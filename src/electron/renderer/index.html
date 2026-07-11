@@ -690,6 +690,30 @@
                 <div id="qoderErrorMessage" class="settings-note error hidden"></div>
               </div>
             </div>
+            <div id="kimiAccountGroup" class="settings-group cursor-account-group">
+              <button id="kimiSettingsToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="kimiSettingsDetails">
+                <span data-i18n="settings.kimi.title">Kimi Account</span>
+                <span class="cursor-settings-summary">
+                  <span id="kimiAccountStatus" class="cursor-status-pill" data-i18n="settings.opencode.statusNotSet">Not configured</span>
+                  <span class="cursor-disclosure-icon" aria-hidden="true"></span>
+                </span>
+              </button>
+              <div id="kimiSettingsDetails" class="cursor-settings-details hidden">
+                <div class="settings-actions">
+                  <button id="kimiOpenBrowser" data-i18n="settings.kimi.openBrowser">Open Kimi Code Console</button>
+                  <button id="kimiLogoutButton" class="hidden" data-i18n="settings.kimi.clearApiKey">Clear key</button>
+                  <button id="kimiRefreshButton" data-i18n="settings.common.refresh">Refresh</button>
+                </div>
+                <div id="kimiManualPanel">
+                  <p class="settings-note" data-i18n="settings.kimi.note">Paste your Kimi Code API key. It stays on this device and is used only to check Kimi Code quota.</p>
+                  <input id="kimiApiKeyInput" type="password" spellcheck="false" placeholder="sk-..." data-i18n-placeholder="settings.kimi.apiKeyPlaceholder" />
+                  <div class="settings-actions">
+                    <button id="kimiApiKeySubmit" data-i18n="settings.kimi.saveApiKey">Save API key</button>
+                  </div>
+                </div>
+                <div id="kimiErrorMessage" class="settings-note error hidden"></div>
+              </div>
+            </div>
             <div id="copilotAccountGroup" class="settings-group cursor-account-group">
               <button id="copilotSettingsToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="copilotSettingsDetails">
                 <span data-i18n="settings.copilot.title">GitHub Copilot Account</span>

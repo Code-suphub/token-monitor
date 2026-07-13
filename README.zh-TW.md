@@ -217,6 +217,7 @@ TOKEN_MONITOR_HUB_URL=               # 同步模式必填——Worker URL 或 ht
 TOKEN_MONITOR_SECRET=                # 共用 secret，必須與 hub 一致
 TOKEN_MONITOR_DEVICE_ID=             # 選填——預設為主機名稱
 TOKEN_MONITOR_CLIENTS=               # 選填——預設為所有支援的工具；設為空表示不追蹤
+TOKEN_MONITOR_PROJECTS_ENABLED=      # 選填——預設關閉；設為 1 可收集專案中繼資料
 TOKEN_MONITOR_HISTORY_ENABLED=       # 選填——預設啟用；設為 0 可跳過收集趨勢歷史
 TOKEN_MONITOR_LIMITS_ENABLED=        # 選填——預設啟用；設為 0 可跳過 CLI 探測
 TOKEN_MONITOR_LIMIT_PROVIDERS=       # 選填——預設為所有支援的供應商（claude、codex、cursor、antigravity、opencode、deepseek、minimax、mimo、grok、copilot、kiro、zai、zaiteam、volcengine、qoder、kimi、ollama）

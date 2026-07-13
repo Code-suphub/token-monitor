@@ -217,6 +217,7 @@ TOKEN_MONITOR_HUB_URL=               # 동기화 필수 — Worker URL 또는 ht
 TOKEN_MONITOR_SECRET=                # hub와 동일한 secret
 TOKEN_MONITOR_DEVICE_ID=             # 선택 — 기본값 호스트명
 TOKEN_MONITOR_CLIENTS=               # 선택 — 기본값 전체 도구; 비우면 추적 안 함
+TOKEN_MONITOR_PROJECTS_ENABLED=      # 선택 — 기본 꺼짐; 1이면 프로젝트 메타데이터 수집
 TOKEN_MONITOR_HISTORY_ENABLED=       # 선택 — 기본 켜짐; 0이면 추세 기록 생략
 TOKEN_MONITOR_LIMITS_ENABLED=        # 선택 — 기본 켜짐; 0이면 CLI 프로브 생략
 TOKEN_MONITOR_LIMIT_PROVIDERS=       # 선택 — claude,codex,cursor,antigravity,opencode,deepseek,minimax,mimo,grok,copilot,kiro,zai,zaiteam,volcengine,qoder,kimi,ollama

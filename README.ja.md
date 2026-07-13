@@ -217,6 +217,7 @@ TOKEN_MONITOR_HUB_URL=               # 同期に必須 — Worker URL または 
 TOKEN_MONITOR_SECRET=                # hub と同じ secret
 TOKEN_MONITOR_DEVICE_ID=             # 任意 — デフォルトはホスト名
 TOKEN_MONITOR_CLIENTS=               # 任意 — デフォルトは全ツール；空にすると追跡無効
+TOKEN_MONITOR_PROJECTS_ENABLED=      # 任意 — デフォルトは無効；1 でプロジェクトメタデータを収集
 TOKEN_MONITOR_HISTORY_ENABLED=       # 任意 — デフォルトは有効；0 でトレンド履歴をスキップ
 TOKEN_MONITOR_LIMITS_ENABLED=        # 任意 — デフォルトは有効；0 で CLI プローブをスキップ
 TOKEN_MONITOR_LIMIT_PROVIDERS=       # 任意 — claude,codex,cursor,antigravity,opencode,deepseek,minimax,mimo,grok,copilot,kiro,zai,zaiteam,volcengine,qoder,kimi,ollama

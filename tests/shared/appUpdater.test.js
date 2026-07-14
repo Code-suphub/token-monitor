@@ -229,8 +229,8 @@ test('release template exposes marked English and Chinese app summaries', () => 
   assert.ok(notes.zh.every((group) => group.items.length > 0));
   assert.ok(notes.en.every((group) => group.items.every((item) => !/\(#\d/.test(item))));
   assert.ok(notes.zh.every((group) => group.items.every((item) => !/（#\d/.test(item))));
-  assert.match(template, /\(#122, #138, #144\)/);
-  assert.match(template, /（#122、#138、#144）/);
+  assert.match(template, /\(#\d+(?:, #\d+)*\)/);
+  assert.match(template, /（#\d+(?:、#\d+)*）/);
 });
 
 test('mergeLatestReleaseMetadata preserves notes when native updater metadata omits them', () => {

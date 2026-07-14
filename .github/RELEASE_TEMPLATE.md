@@ -6,25 +6,23 @@
 
 <!-- app-update-notes:en:start -->
 ### Added
-- **Projects view:** Disabled by default; enable it under **Settings → Main Screen → Enable project tracking** to track Claude Code, Codex, and OpenCode token usage and costs by workspace, with cross-device rollups and no raw workspace paths sent to the hub. (#122, #138, #144)
-- **Shareable theme codes:** Copy or import a `TM1` theme code to share appearance settings. (#130)
-- **Windows app updates:** Windows installer builds can now download and install updates from inside Token Monitor; portable builds continue to update manually. (#136)
+- **Tray shortcuts:** Right-click the tray icon to refresh usage, open a specific view, switch Codex accounts, change tray display and window presentation, open Settings, or quit. (#147)
+- **App update notes:** See the release highlights inside Token Monitor before downloading an update, with a link to the full GitHub release. (#150)
+- **VS Code Copilot Chat:** Usage is now detected automatically from local VS Code sessions on desktop and WSL, with no OpenTelemetry setup required.
 
 ### Improved
-- **Codex reset counts:** Upcoming reset expirations now appear as a timeline, and a lone quota window expands to the full card width. (#135)
-- **Appearance settings:** Vendor Colors now have their own section for easier customization.
+- **About Token Monitor:** Settings now show the installed version with direct links to GitHub and issue reporting. (#151)
 
 ### Fixed
-- **Session details:** The `TOTAL` session view is available again in sync and host modes. (#131)
-- **AI Tool Limits:** Tray limit bars now fall back to weekly windows when a provider has no session window, and MiMo no longer shows Token Plan for inactive or free accounts. (#137, #142)
+- **macOS tray icon:** The menu bar icon now uses native template styling so it follows the system appearance correctly.
 <!-- app-update-notes:en:end -->
 
 ## Download
 
-- **macOS Apple Silicon** — [Token-Monitor-0.27.0-arm64.dmg](https://github.com/Javis603/token-monitor/releases/download/v0.27.0/Token-Monitor-0.27.0-arm64.dmg)
-- **Windows Installer** — [Token-Monitor-Setup-0.27.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.27.0/Token-Monitor-Setup-0.27.0.exe) (recommended)
-- **Windows Portable** — [Token-Monitor-0.27.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.27.0/Token-Monitor-0.27.0.exe) (no install required)
-- **Linux x64** — [Token-Monitor-0.27.0.AppImage](https://github.com/Javis603/token-monitor/releases/download/v0.27.0/Token-Monitor-0.27.0.AppImage)
+- **macOS Apple Silicon** — [Token-Monitor-0.28.0-arm64.dmg](https://github.com/Javis603/token-monitor/releases/download/v0.28.0/Token-Monitor-0.28.0-arm64.dmg)
+- **Windows Installer** — [Token-Monitor-Setup-0.28.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.28.0/Token-Monitor-Setup-0.28.0.exe) (recommended)
+- **Windows Portable** — [Token-Monitor-0.28.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.28.0/Token-Monitor-0.28.0.exe) (no install required)
+- **Linux x64** — [Token-Monitor-0.28.0.AppImage](https://github.com/Javis603/token-monitor/releases/download/v0.28.0/Token-Monitor-0.28.0.AppImage)
 
 <details>
 <summary><strong>First launch and other notes</strong></summary>
@@ -64,25 +62,23 @@ open-source: https://github.com/junhoyeo/tokscale
 
 <!-- app-update-notes:zh:start -->
 ### 新增
-- **项目视图：** 此功能默认关闭，可前往 **设置 → 主界面 → 启用项目追踪** 开启，按工作区追踪 Claude Code、Codex 与 OpenCode 的 Token 用量和费用；支持跨设备汇总，且不会向 Hub 发送原始工作区路径。（#122、#138、#144）
-- **主题分享码：** 可复制或导入 `TM1` 主题码，分享外观设置。（#130）
-- **Windows 应用更新：** Windows 安装版现可在 Token Monitor 内下载并安装更新；便携版仍需手动更新。（#136）
+- **托盘快捷操作：** 右键点击托盘图标即可刷新用量、打开指定视图、切换 Codex 账号、调整托盘显示与窗口模式、打开设置或退出应用。（#147）
+- **应用更新说明：** 下载更新前可直接在 Token Monitor 内查看本版重点，并可前往 GitHub 阅读完整发布说明。（#150）
+- **VS Code Copilot Chat：** 现可自动从桌面与 WSL 的本地 VS Code 会话中检测用量，无需配置 OpenTelemetry。
 
 ### 改进
-- **Codex 重置次数：** 即将到期的重置次数现以时间线显示；仅有一个额度窗口时也会扩展至卡片全宽。（#135）
-- **外观设置：** 厂商色现有独立设置区，更方便自定义。
+- **关于 Token Monitor：** 设置中现会显示已安装版本，并提供 GitHub 与问题反馈的直达链接。（#151）
 
 ### 修复
-- **会话明细：** 同步与主机模式现已恢复 `TOTAL` 会话视图。（#131）
-- **AI 工具额度：** 当服务商没有会话窗口时，托盘额度条现会改用每周窗口；MiMo 的未订阅或免费账号也不再误显示 Token Plan。（#137、#142）
+- **macOS 托盘图标：** 菜单栏图标现采用系统原生模板样式，可正确适配系统外观。
 <!-- app-update-notes:zh:end -->
 
 ## 下载
 
-- **macOS Apple Silicon** — [Token-Monitor-0.27.0-arm64.dmg](https://github.com/Javis603/token-monitor/releases/download/v0.27.0/Token-Monitor-0.27.0-arm64.dmg)
-- **Windows 安装版** — [Token-Monitor-Setup-0.27.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.27.0/Token-Monitor-Setup-0.27.0.exe)（推荐）
-- **Windows 便携版** — [Token-Monitor-0.27.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.27.0/Token-Monitor-0.27.0.exe)（免安装）
-- **Linux x64** — [Token-Monitor-0.27.0.AppImage](https://github.com/Javis603/token-monitor/releases/download/v0.27.0/Token-Monitor-0.27.0.AppImage)
+- **macOS Apple Silicon** — [Token-Monitor-0.28.0-arm64.dmg](https://github.com/Javis603/token-monitor/releases/download/v0.28.0/Token-Monitor-0.28.0-arm64.dmg)
+- **Windows 安装版** — [Token-Monitor-Setup-0.28.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.28.0/Token-Monitor-Setup-0.28.0.exe)（推荐）
+- **Windows 便携版** — [Token-Monitor-0.28.0.exe](https://github.com/Javis603/token-monitor/releases/download/v0.28.0/Token-Monitor-0.28.0.exe)（免安装）
+- **Linux x64** — [Token-Monitor-0.28.0.AppImage](https://github.com/Javis603/token-monitor/releases/download/v0.28.0/Token-Monitor-0.28.0.AppImage)
 
 <details>
 <summary><strong>首次启动与其他说明</strong></summary>

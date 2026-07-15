@@ -58,6 +58,7 @@ const {
 const {
   appUpdateInstallSupport,
   checkLatestRelease,
+  deriveAppUpdateAvailability,
   downloadedAppUpdateMatchesLatest,
   GITHUB_REPO,
   mergeLatestReleaseMetadata,
@@ -2876,6 +2877,7 @@ async function downloadTokscaleFromNpm() {
 }
 
 let appUpdateCheckInFlight = false;
+let appUpdateCheckPromise = null;
 let appUpdateLastError = null;
 let appUpdateBackgroundTimer = null;
 let appUpdateNativeBusy = false;
@@ -2959,14 +2961,18 @@ function deriveAppUpdateState() {
   const latest = block.lastKnownLatest || null;
   const dismissedVersion = block.dismissedVersion || null;
   const installSupport = appUpdateInstallSupport({ isPackaged: app.isPackaged, platform: process.platform, env: process.env });
-  let hasUpdate = false;
-  if (latest && semver.valid(latest.version) && semver.valid(currentVersion)) {
-    hasUpdate = semver.gt(latest.version, currentVersion) && latest.version !== dismissedVersion;
-  }
+  const availability = deriveAppUpdateAvailability({
+    currentVersion,
+    latest,
+    dismissedVersion,
+    phase: appUpdateNativeState.phase,
+    downloadedVersion: appUpdateNativeState.version
+  });
   return {
     currentVersion,
     latest,
-    hasUpdate,
+    hasUpdate: availability.hasUpdate,
+    showUpdateNotice: availability.showUpdateNotice,
     dismissedVersion,
     lastCheckedAt: block.lastCheckedAt || null,
     checking: appUpdateCheckInFlight,
@@ -2977,13 +2983,20 @@ function deriveAppUpdateState() {
     installProgress: appUpdateNativeState.progress,
     installVersion: appUpdateNativeState.version,
     installError: appUpdateNativeState.error,
-    downloaded: downloadedAppUpdateMatchesLatest({
-      phase: appUpdateNativeState.phase,
-      downloadedVersion: appUpdateNativeState.version,
-      latest
-    }),
+    downloaded: availability.downloaded,
     installBusy: appUpdateNativeBusy || appUpdateNativeState.phase === 'checking' || appUpdateNativeState.phase === 'downloading'
   };
+}
+
+function restoreDismissedAppUpdate(version) {
+  const block = settings?.appUpdate || {};
+  if (!version || block.dismissedVersion !== version) return false;
+  settings.appUpdate = {
+    ...block,
+    dismissedVersion: null
+  };
+  saveSettings();
+  return true;
 }
 
 function sendAppUpdatePush() {
@@ -2992,7 +3005,20 @@ function sendAppUpdatePush() {
 }
 
 async function runAppUpdateCheck({ force = false } = {}) {
-  if (appUpdateCheckInFlight) return deriveAppUpdateState();
+  if (appUpdateCheckPromise) {
+    if (force) sendAppUpdatePush();
+    const activeResult = await appUpdateCheckPromise;
+    if (force) {
+      if (activeResult?.ok) {
+        if (activeResult.newer) restoreDismissedAppUpdate(activeResult.latest?.version);
+        appUpdateLastError = null;
+      } else {
+        appUpdateLastError = activeResult?.error || 'Update check failed';
+      }
+      sendAppUpdatePush();
+    }
+    return deriveAppUpdateState();
+  }
   const block = settings?.appUpdate || {};
   if (shouldSkipAppUpdateCheck({
     force,
@@ -3003,24 +3029,37 @@ async function runAppUpdateCheck({ force = false } = {}) {
   })) {
     return deriveAppUpdateState();
   }
-  appUpdateCheckInFlight = true;
-  appUpdateLastError = null;
-  if (force) sendAppUpdatePush();
-  try {
-    const result = await checkLatestRelease(app.getVersion());
-    if (result.ok) {
-      rememberLatestAppUpdate(result.latest, result.checkedAt);
-      appUpdateLastError = null;
-    } else {
-      appUpdateLastError = force ? (result.error || 'Update check failed') : null;
-      if (!force) console.warn('App update check failed:', result.error);
+  const checkTask = (async () => {
+    appUpdateCheckInFlight = true;
+    appUpdateLastError = null;
+    if (force) sendAppUpdatePush();
+    let result;
+    try {
+      result = await checkLatestRelease(app.getVersion());
+      if (result.ok) {
+        rememberLatestAppUpdate(result.latest, result.checkedAt);
+        if (force && result.newer) restoreDismissedAppUpdate(result.latest?.version);
+        appUpdateLastError = null;
+      } else {
+        appUpdateLastError = force ? (result.error || 'Update check failed') : null;
+        if (!force) console.warn('App update check failed:', result.error);
+      }
+    } catch (error) {
+      const message = error.message || String(error);
+      appUpdateLastError = force ? message : null;
+      if (!force) console.warn('App update check threw:', error);
+      return { ok: false, newer: false, latest: null, error: message };
+    } finally {
+      appUpdateCheckInFlight = false;
+      sendAppUpdatePush();
     }
-  } catch (error) {
-    appUpdateLastError = force ? (error.message || String(error)) : null;
-    if (!force) console.warn('App update check threw:', error);
+    return result;
+  })();
+  appUpdateCheckPromise = checkTask;
+  try {
+    await checkTask;
   } finally {
-    appUpdateCheckInFlight = false;
-    sendAppUpdatePush();
+    if (appUpdateCheckPromise === checkTask) appUpdateCheckPromise = null;
   }
   return deriveAppUpdateState();
 }
@@ -3059,6 +3098,7 @@ async function downloadAndPrepareAppUpdate() {
     downloadedVersion: appUpdateNativeState.version,
     latest
   })) return deriveAppUpdateState();
+  restoreDismissedAppUpdate(latest?.version);
   configureNativeAppUpdater();
   appUpdateNativeBusy = true;
   setNativeAppUpdateState({ phase: 'checking', progress: null, error: null });

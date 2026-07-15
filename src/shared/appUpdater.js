@@ -154,12 +154,8 @@ function shouldSkipAppUpdateCheck({
   if (force || !lastCheckedAt) return false;
   const last = Date.parse(lastCheckedAt);
   if (!Number.isFinite(last)) return false;
-  const latestVersion = latest?.version;
-  const current = semver.valid(currentVersion);
-  const cachedUpdate = semver.valid(latestVersion)
-    && current
-    && semver.gt(latestVersion, current)
-    && latestVersion !== dismissedVersion;
+  const availability = deriveAppUpdateAvailability({ currentVersion, latest, dismissedVersion });
+  const cachedUpdate = availability.hasUpdate && !availability.dismissed;
   const cooldownMs = cachedUpdate ? APP_UPDATE_OUTDATED_COOLDOWN_MS : APP_UPDATE_BACKGROUND_COOLDOWN_MS;
   return nowMs - last < cooldownMs;
 }
@@ -173,6 +169,26 @@ function downloadedAppUpdateMatchesLatest({
   const version = semver.valid(downloadedVersion);
   const latestVersion = semver.valid(latest?.version);
   return Boolean(version && latestVersion && version === latestVersion);
+}
+
+function deriveAppUpdateAvailability({
+  currentVersion,
+  latest,
+  dismissedVersion,
+  phase,
+  downloadedVersion
+} = {}) {
+  const current = semver.valid(currentVersion);
+  const latestVersion = semver.valid(latest?.version);
+  const hasUpdate = Boolean(current && latestVersion && semver.gt(latestVersion, current));
+  const dismissed = Boolean(hasUpdate && latestVersion === dismissedVersion);
+  const downloaded = downloadedAppUpdateMatchesLatest({ phase, downloadedVersion, latest });
+  return {
+    hasUpdate,
+    dismissed,
+    downloaded,
+    showUpdateNotice: downloaded || (hasUpdate && !dismissed)
+  };
 }
 
 async function withTimeout(ms, task) {
@@ -218,6 +234,7 @@ module.exports = {
   parseLatestReleasePayload,
   shouldSkipAppUpdateCheck,
   downloadedAppUpdateMatchesLatest,
+  deriveAppUpdateAvailability,
   extractReleaseNotes,
   mergeLatestReleaseMetadata,
   checkLatestRelease,

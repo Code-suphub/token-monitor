@@ -562,13 +562,21 @@ async function collectHistoryOnce(options) {
     const readStatsGraph = options.buildClaudeStatsGraph || buildClaudeStatsGraph;
     const statsGraph = readStatsGraph({ homeDir: options.homeDir });
     if (statsGraph) {
-      const statsHistory = normalizeHistory(parseGraphResult(statsGraph), { capDays, todayKey });
-      if (statsHistory.daily.length) {
+      const parsed = parseGraphResult(statsGraph);
+      // Filter out stats days already covered by tokscale at the contribution level,
+      // so both daily and monthly/summary are derived from the deduped set.
+      if (parsed.contributions?.length) {
         const tokscaleClaudeDays = new Set();
+        // histories[0] is always the tokscale graph (pushed at the runGraph block above).
         for (const d of (histories[0]?.daily || [])) {
           if ((d.perClient?.claude?.tokens || 0) > 0) tokscaleClaudeDays.add(d.date);
         }
-        statsHistory.daily = statsHistory.daily.filter((d) => !tokscaleClaudeDays.has(d.date));
+        if (tokscaleClaudeDays.size > 0) {
+          parsed.contributions = parsed.contributions.filter((c) => !tokscaleClaudeDays.has(c.date));
+        }
+      }
+      if (parsed.contributions?.length) {
+        const statsHistory = normalizeHistory(parsed, { capDays, todayKey });
         if (statsHistory.daily.length) histories.push(statsHistory);
       }
     }

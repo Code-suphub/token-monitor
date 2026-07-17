@@ -63,6 +63,32 @@ test('collectHistoryOnce merges Proma history with tokscale graph history', asyn
   assert.equal(history.daily[0].perModel['gpt-5'].tokens, 10);
 });
 
+test('collectHistoryOnce deduplicates Claude Stats days already covered by tokscale', async () => {
+  // buildClaudeStatsGraph returns data for June 7 (already in tokscale with Claude tokens)
+  // and June 8 (not in tokscale, should be supplemented).
+  const statsGraph = {
+    contributions: [
+      { date: '2026-06-07', clients: [
+        { client: 'claude', modelId: 'sonnet', tokens: { input: 5, output: 5, cacheRead: 0, cacheWrite: 0, reasoning: 0 }, cost: 0, messages: 1 }
+      ] },
+      { date: '2026-06-08', clients: [
+        { client: 'claude', modelId: 'sonnet', tokens: { input: 10, output: 20, cacheRead: 0, cacheWrite: 0, reasoning: 0 }, cost: 0, messages: 2 }
+      ] }
+    ]
+  };
+  const history = await collectHistoryOnce({
+    clients: 'claude', todayKey: '2026-06-08',
+    runGraph: async () => SAMPLE_GRAPH,
+    buildClaudeStatsGraph: () => statsGraph
+  });
+  // June 7 from tokscale (30 tokens) + June 8 from stats (30 tokens) = 60 total.
+  // June 7 from stats is excluded before normalizeHistory, so no double-counting in monthly/summary.
+  assert.equal(history.daily.length, 2);
+  assert.equal(history.daily[0].tokens, 30); // June 7 from tokscale only
+  assert.equal(history.daily[1].tokens, 30); // June 8 from stats only
+  assert.equal(history.summary.totalTokens, 60);
+});
+
 test('collectHistoryOnce builds Proma-only history without starting tokscale graph', async () => {
   let graphCalled = false;
   const history = await collectHistoryOnce({

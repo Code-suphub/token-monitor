@@ -3693,6 +3693,7 @@ function homeActivityTooltipEl() {
 
   const label = document.createElement('span');
   label.className = 'home-activity-tooltip-label';
+  label.dataset.homeActivityTooltipLabel = 'true';
   label.textContent = 'tokens';
 
   const date = document.createElement('span');
@@ -3804,7 +3805,10 @@ function setupHomeActivityHover(scroller) {
       activeCell?.removeAttribute('data-active');
       activeCell = cell;
       activeCell.setAttribute('data-active', 'true');
-      tooltip.querySelector('[data-home-activity-tooltip-count]').textContent = formatCompact(Number(cell.dataset.t || 0));
+      const costMode = (state.settings?.heatmapMetric || 'tokens') === 'cost';
+      const value = costMode ? Number(cell.dataset.cost || 0) : Number(cell.dataset.t || 0);
+      tooltip.querySelector('[data-home-activity-tooltip-count]').textContent = costMode ? formatCost(value) : formatCompact(value);
+      tooltip.querySelector('[data-home-activity-tooltip-label]').textContent = costMode ? 'cost' : 'tokens';
       tooltip.querySelector('[data-home-activity-tooltip-date]').textContent = cell.dataset.d || '';
     }
     tooltip.dataset.visible = 'true';
@@ -3865,13 +3869,39 @@ function renderHomeTrendsModule() {
   const todayPeriod = state.stats?.periods?.today;
   const points = homeOverviewApi.patchDailyToday(rawDaily, today, Number(todayPeriod?.totalTokens || 0), Number(todayPeriod?.costUsd || 0));
   const activityLayout = homeOverviewApi.homeActivityHeatmapLayout();
-  const activity = charts.rollingYearHeatmap(dailyWithHeatIntensity(points), {
+  const heatMetric = state.settings?.heatmapMetric || 'tokens';
+  const intensityField = heatMetric === 'cost' ? 'costIntensity' : 'intensity';
+  const intensityPoints = dailyWithHeatIntensity(points).map((p) => ({
+    ...p,
+    intensity: Number(p[intensityField] ?? p.intensity ?? 0)
+  }));
+  const activity = charts.rollingYearHeatmap(intensityPoints, {
     endDate: today,
     cell: activityLayout.cell,
     gap: activityLayout.gap
   });
-  const activeDays = activity.cells.filter((cell) => cell.intensity > 0).length;
+  const activeDays = activity.cells.filter((cell) => cell.tokens > 0).length;
   const { module, body } = homeModuleShell('trends', t('home.activity'), 'trends', t('home.activeDays', { count: activeDays }));
+  const headEnd = module.querySelector('.home-module-head-end');
+  if (headEnd) {
+    const metricToggle = document.createElement('div');
+    metricToggle.className = 'home-heatmap-metric';
+    ['tokens', 'cost'].forEach((metric) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `home-heatmap-metric-btn${heatMetric === metric ? ' active' : ''}`;
+      btn.textContent = metric === 'tokens' ? 'Tokens' : 'Cost';
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if ((state.settings?.heatmapMetric || 'tokens') === metric) return;
+        state.settings = { ...state.settings, heatmapMetric: metric };
+        window.tokenMonitor.updateSettings({ heatmapMetric: metric });
+        render();
+      });
+      metricToggle.append(btn);
+    });
+    headEnd.insertBefore(metricToggle, headEnd.lastChild);
+  }
   const activityScroll = document.createElement('div');
   activityScroll.className = 'home-activity-scroll';
   activityScroll.tabIndex = 0;
@@ -6964,10 +6994,14 @@ els.appUpdateReleaseNotesButton.addEventListener('click', async () => {
 
 window.tokenMonitor.onSettingsPush?.((next) => {
   if (!next) return;
+  const prevMetric = state.settings?.heatmapMetric;
   state.settings = next;
   applyEffectiveCurrencyRates();
   syncSettingsForm();
   maybeUpdateBarsIcon();
+  if (prevMetric !== (next.heatmapMetric || 'tokens')) {
+    render();
+  }
 });
 
 reducedMotionMedia?.addEventListener?.('change', () => {

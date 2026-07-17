@@ -163,7 +163,7 @@
   }
 
   function contribHeatmap(daily, options) {
-    const o = Object.assign({ cell: 11, gap: 2, startDate: null, endDate: null }, options || {});
+    const o = Object.assign({ cell: 11, gap: 2, startDate: null, endDate: null, intensityKey: 'intensity' }, options || {});
     const intensities = new Map();
     const values = new Map();
     // startDate/endDate, when given, fix the window (e.g. a rolling year) so the grid
@@ -172,7 +172,7 @@
     let maxDate = o.endDate ? String(o.endDate).slice(0, 10) : null;
     for (const d of (Array.isArray(daily) ? daily : [])) {
       const key = String(d.date).slice(0, 10);
-      intensities.set(key, n(d.intensity));
+      intensities.set(key, n(d[o.intensityKey]));
       values.set(key, { tokens: n(d.tokens), cost: n(d.cost) });
       if (!o.startDate && (!minDate || key < minDate)) minDate = key;
       if (!o.endDate && (!maxDate || key > maxDate)) maxDate = key;

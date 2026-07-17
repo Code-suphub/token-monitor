@@ -2049,6 +2049,28 @@ html.is-windows .settings-panel select option {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.home-heatmap-metric {
+  display: inline-flex;
+  background: rgba(var(--overlay-rgb), 0.05);
+  border-radius: 4px;
+  padding: 1px;
+}
+.home-heatmap-metric-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  opacity: 0.5;
+  line-height: 1.4;
+}
+.home-heatmap-metric-btn.active {
+  opacity: 1;
+  background: rgba(var(--overlay-rgb), 0.12);
+  color: var(--text);
+}
 .home-module-label {
   overflow: hidden;
   color: var(--text);

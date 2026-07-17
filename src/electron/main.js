@@ -228,6 +228,7 @@ function defaultSettings() {
     showToolIcons: true,
     titleIconOnly: true,
     showCompactTotalTokens: false,
+    heatmapMetric: 'tokens',
     themeColors: {},
     vendorColors: {},
     floatingBubbleEnabled: false,

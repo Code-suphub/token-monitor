@@ -86,13 +86,13 @@ test('parseGraphResult is defensive about missing/garbage input', () => {
   });
 });
 
-test('computeIntensities buckets by cost ratio to the max day', () => {
+test('computeIntensities buckets by token ratio to the max day', () => {
   const days = [
-    { date: 'a', cost: 0 },
-    { date: 'b', cost: 0.2 },   // 0.2/4 = 0.05 -> 1
-    { date: 'c', cost: 1.0 },   // 0.25 -> 2
-    { date: 'd', cost: 2.0 },   // 0.5 -> 3
-    { date: 'e', cost: 4.0 }    // 1.0 -> 4
+    { date: 'a', tokens: 0 },
+    { date: 'b', tokens: 0.2 },   // 0.2/4 = 0.05 -> 1
+    { date: 'c', tokens: 1.0 },   // 0.25 -> 2
+    { date: 'd', tokens: 2.0 },   // 0.5 -> 3
+    { date: 'e', tokens: 4.0 }    // 1.0 -> 4
   ];
   const out = computeIntensities(days);
   assert.deepEqual(out.map((d) => d.intensity), [0, 1, 2, 3, 4]);
@@ -100,8 +100,8 @@ test('computeIntensities buckets by cost ratio to the max day', () => {
   assert.equal(out, days);
 });
 
-test('computeIntensities sets all-zero when no cost', () => {
-  const days = [{ date: 'a', cost: 0 }, { date: 'b', cost: 0 }];
+test('computeIntensities sets all-zero when no tokens', () => {
+  const days = [{ date: 'a', tokens: 0 }, { date: 'b', tokens: 0 }];
   assert.deepEqual(computeIntensities(days).map((d) => d.intensity), [0, 0]);
 });
 

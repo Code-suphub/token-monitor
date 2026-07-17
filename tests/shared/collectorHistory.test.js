@@ -24,7 +24,8 @@ const SAMPLE_GRAPH = {
 test('collectHistoryOnce normalizes injected graph JSON into a History', async () => {
   const history = await collectHistoryOnce({
     clients: 'claude', todayKey: '2026-06-07',
-    runGraph: async () => SAMPLE_GRAPH
+    runGraph: async () => SAMPLE_GRAPH,
+    buildClaudeStatsGraph: () => null
   });
   assert.equal(history.daily.length, 1);
   assert.equal(history.daily[0].tokens, 30);
@@ -34,7 +35,8 @@ test('collectHistoryOnce normalizes injected graph JSON into a History', async (
 test('collectHistoryOnce returns null when the graph run throws', async () => {
   const history = await collectHistoryOnce({
     clients: 'claude', todayKey: '2026-06-07',
-    runGraph: async () => { throw new Error('boom'); }
+    runGraph: async () => { throw new Error('boom'); },
+    buildClaudeStatsGraph: () => null
   });
   assert.equal(history, null);
 });
@@ -53,7 +55,8 @@ test('collectHistoryOnce merges Proma history with tokscale graph history', asyn
     ] }]
   };
   const history = await collectHistoryOnce({
-    clients: 'claude', promaGraph, todayKey: '2026-06-07', runGraph: async () => SAMPLE_GRAPH
+    clients: 'claude', promaGraph, todayKey: '2026-06-07', runGraph: async () => SAMPLE_GRAPH,
+    buildClaudeStatsGraph: () => null
   });
   assert.equal(history.daily[0].tokens, 40);
   assert.equal(history.daily[0].perClient.proma.tokens, 10);

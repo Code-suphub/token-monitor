@@ -20,6 +20,7 @@ const cursorAuth = require('./cursorAuth');
 const { findSessionFiles, codexSessionFile } = require('./sessionFiles');
 const opencodeSession = require('./opencodeSession');
 const { buildPromaHistoryGraph, buildPromaPeriods, collectPromaRows } = require('./promaUsage');
+const { buildClaudeStatsGraph } = require('./claudeTokenStats');
 const { hashKey } = require('./hashKey');
 
 function toUnpackedPath(p) {
@@ -557,6 +558,21 @@ async function collectHistoryOnce(options) {
     }
   }
   if (options.promaGraph) histories.push(normalizeHistory(parseGraphResult(options.promaGraph), { capDays, todayKey }));
+  if (clients && clients.split(',').includes('claude')) {
+    const readStatsGraph = options.buildClaudeStatsGraph || buildClaudeStatsGraph;
+    const statsGraph = readStatsGraph({ homeDir: options.homeDir });
+    if (statsGraph) {
+      const statsHistory = normalizeHistory(parseGraphResult(statsGraph), { capDays, todayKey });
+      if (statsHistory.daily.length) {
+        const tokscaleClaudeDays = new Set();
+        for (const d of (histories[0]?.daily || [])) {
+          if ((d.perClient?.claude?.tokens || 0) > 0) tokscaleClaudeDays.add(d.date);
+        }
+        statsHistory.daily = statsHistory.daily.filter((d) => !tokscaleClaudeDays.has(d.date));
+        if (statsHistory.daily.length) histories.push(statsHistory);
+      }
+    }
+  }
   if (histories.length === 0) return null;
   const history = histories.length === 1 ? histories[0] : mergeHistories(histories, { todayKey });
   return history.daily.length || history.monthly.length ? history : null;

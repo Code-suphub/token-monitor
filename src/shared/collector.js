@@ -549,10 +549,15 @@ async function collectHistoryOnce(options) {
   const runGraph = options.runGraph || runTokscaleGraph;
   const capDays = Number.isFinite(options.capDays) ? options.capDays : HISTORY_CAP_DAYS;
   const todayKey = options.todayKey || localTodayKey();
+  let rawTokscaleContributions = null;
   if (clients) {
     try {
       const graphJson = await runGraph({ clients, commandTimeoutMs: options.commandTimeoutMs || HISTORY_TIMEOUT_MS });
-      histories.push(normalizeHistory(parseGraphResult(graphJson), { capDays, todayKey }));
+      const parsed = parseGraphResult(graphJson);
+      // Save the raw (uncapped) contributions for dedup below, since
+      // histories[0].daily is capped to ~370 days and may miss older data.
+      rawTokscaleContributions = parsed.contributions || null;
+      histories.push(normalizeHistory(parsed, { capDays, todayKey }));
     } catch (error) {
       if (typeof options.logger === 'function') options.logger(`tokscale graph failed: ${error.message}`);
     }
@@ -563,13 +568,14 @@ async function collectHistoryOnce(options) {
     const statsGraph = readStatsGraph({ homeDir: options.homeDir });
     if (statsGraph) {
       const parsed = parseGraphResult(statsGraph);
-      // Filter out stats days already covered by tokscale at the contribution level,
-      // so both daily and monthly/summary are derived from the deduped set.
       if (parsed.contributions?.length) {
         const tokscaleClaudeDays = new Set();
-        // histories[0] is always the tokscale graph (pushed at the runGraph block above).
-        for (const d of (histories[0]?.daily || [])) {
-          if ((d.perClient?.claude?.tokens || 0) > 0) tokscaleClaudeDays.add(d.date);
+        // Use raw (uncapped) tokscale contributions so stats days outside
+        // the daily cap window are still deduplicated from monthly/summary.
+        const src = rawTokscaleContributions || histories[0]?.daily || [];
+        for (const d of src) {
+          const tokens = d.perClient?.claude?.tokens || d.tokens || 0;
+          if (tokens > 0) tokscaleClaudeDays.add(d.date);
         }
         if (tokscaleClaudeDays.size > 0) {
           parsed.contributions = parsed.contributions.filter((c) => !tokscaleClaudeDays.has(c.date));

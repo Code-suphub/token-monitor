@@ -551,6 +551,7 @@ async function collectHistoryOnce(options) {
   if (options.historyEnabled === false) return null;
   const histories = [];
   const rawGraphs = [];
+  const parsedContribs = [];
   const runGraph = options.runGraph || runTokscaleGraph;
   const capDays = Number.isFinite(options.capDays) ? options.capDays : HISTORY_CAP_DAYS;
   const todayKey = options.todayKey || localTodayKey();
@@ -558,14 +559,18 @@ async function collectHistoryOnce(options) {
     try {
       const graphJson = await runGraph({ clients, commandTimeoutMs: options.commandTimeoutMs || HISTORY_TIMEOUT_MS });
       rawGraphs.push(graphJson);
-      histories.push(normalizeHistory(parseGraphResult(graphJson), { capDays, todayKey }));
+      const parsed = parseGraphResult(graphJson);
+      if (parsed.contributions?.length) parsedContribs.push(parsed.contributions);
+      histories.push(normalizeHistory(parsed, { capDays, todayKey }));
     } catch (error) {
       if (typeof options.logger === 'function') options.logger(`tokscale graph failed: ${error.message}`);
     }
   }
   if (options.promaGraph) {
     rawGraphs.push(options.promaGraph);
-    histories.push(normalizeHistory(parseGraphResult(options.promaGraph), { capDays, todayKey }));
+    const parsed = parseGraphResult(options.promaGraph);
+    if (parsed.contributions?.length) parsedContribs.push(parsed.contributions);
+    histories.push(normalizeHistory(parsed, { capDays, todayKey }));
   }
   if (options.dailyHistoryArchiveEnabled) {
     try {
@@ -591,13 +596,9 @@ async function collectHistoryOnce(options) {
         const parsed = parseGraphResult(statsGraph);
         if (parsed.contributions?.length) {
           const tokscaleClaudeDays = new Set();
-          // Build dedup set from parsed (not raw) tokscale contributions, since
-          // rawGraphs entries have the original graph format (clients arrays)
-          // while histories[0].daily has the normalized format (perClient).
-          const parsedToks = rawGraphs.length > 0 ? rawGraphs.map((g) => {
-            const p = parseGraphResult(g);
-            return Array.isArray(p.contributions) ? p.contributions : [];
-          }) : [];
+          // Build dedup set from already-parsed contributions (saved during
+          // graph processing above) to avoid re-parsing rawGraphs.
+          const parsedToks = parsedContribs.length > 0 ? parsedContribs : [];
           if (parsedToks.length > 0) {
             for (const days of parsedToks) {
               for (const d of days) {

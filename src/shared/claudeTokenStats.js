@@ -53,7 +53,7 @@ function buildClaudeStatsGraph(options = {}) {
         providerId: 'anthropic',
         tokens: { input, output, cacheRead, cacheWrite: cacheCreate, reasoning: 0 },
         cost: 0,
-        messages: 1
+        messages: 0
       });
     }
 

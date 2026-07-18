@@ -124,7 +124,7 @@ test('buildClaudeStatsGraph output is compatible with parseGraphResult', () => {
     assert.equal(apr1.perClient.claude.tokens, 660);
     assert.equal(apr1.perModel.opus.tokens, 600);
     assert.equal(apr1.perModel.sonnet.tokens, 60);
-    assert.equal(apr1.messages, 2);
+    assert.equal(apr1.messages, 0); // token_stats.db has no message count
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
     fs.rmSync(dir, { recursive: true, force: true });

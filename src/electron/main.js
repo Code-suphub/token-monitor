@@ -195,6 +195,15 @@ if (process.platform === 'win32') app.setAppUserModelId('com.javis.tokenmonitor'
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.exit(0);
 
+const HOME_LIMIT_ACCOUNT_COUNT_DEFAULT = 3;
+const HOME_LIMIT_ACCOUNT_COUNT_MAX = 12;
+
+function normalizeHomeLimitAccountCount(value) {
+  const count = Math.trunc(Number(value));
+  if (!Number.isFinite(count)) return HOME_LIMIT_ACCOUNT_COUNT_DEFAULT;
+  return Math.max(1, Math.min(HOME_LIMIT_ACCOUNT_COUNT_MAX, count));
+}
+
 function defaultSettings() {
   const envHubUrl = process.env.TOKEN_MONITOR_HUB_URL || '';
   const windowBehavior = process.env.TOKEN_MONITOR_ALWAYS_ON_TOP === '0' ? 'normal' : 'floating';
@@ -219,6 +228,7 @@ function defaultSettings() {
     showToolIcons: true,
     titleIconOnly: true,
     showCompactTotalTokens: false,
+    heatmapMetric: 'cost',
     themeColors: {},
     vendorColors: {},
     floatingBubbleEnabled: false,
@@ -260,6 +270,7 @@ function defaultSettings() {
     limitProviderOrder: defaultLimitProviderOrder(),
     homeLimitProviderOrder: '',
     hiddenHomeLimitProviders: '',
+    homeLimitAccountCount: HOME_LIMIT_ACCOUNT_COUNT_DEFAULT,
     limitsRefreshMs: normalizeLimitsRefreshMs(process.env.TOKEN_MONITOR_LIMITS_REFRESH_MS),
     showLimitSource: parseBoolean(process.env.TOKEN_MONITOR_SHOW_LIMIT_SOURCE, false),
     maskLimitAccountEmails: false,
@@ -307,6 +318,12 @@ function normalizeCollectionMode(value, fallback = 'live') {
   const next = String(value || '').trim();
   if (COLLECTION_MODE_VALUES.has(next)) return next;
   return COLLECTION_MODE_VALUES.has(fallback) ? fallback : 'live';
+}
+
+function normalizeHeatmapMetric(value, fallback = 'cost') {
+  const next = String(value || '').trim();
+  if (next === 'tokens' || next === 'cost') return next;
+  return fallback === 'tokens' ? 'tokens' : 'cost';
 }
 
 function normalizeCollectionIntervalMs(value, fallback = DEFAULT_COLLECTION_INTERVAL_MS) {
@@ -1363,6 +1380,7 @@ function readSettings() {
     if (saved.hiddenHomeLimitProviders !== undefined) {
       merged.hiddenHomeLimitProviders = normalizeHiddenLimitProviders(saved.hiddenHomeLimitProviders);
     }
+    merged.homeLimitAccountCount = normalizeHomeLimitAccountCount(merged.homeLimitAccountCount);
     if (saved.historyEnabled !== undefined) {
       merged.historyEnabled = parseBoolean(saved.historyEnabled, false);
     }
@@ -1378,6 +1396,7 @@ function readSettings() {
     merged.collectionMode = normalizeCollectionMode(merged.collectionMode);
     merged.collectionIntervalMs = normalizeCollectionIntervalMs(merged.collectionIntervalMs);
     merged.syncUploadIntervalMs = normalizeSyncUploadIntervalMs(merged.syncUploadIntervalMs);
+    merged.heatmapMetric = normalizeHeatmapMetric(merged.heatmapMetric);
     merged.reduceMotion = motionPreferenceApi.normalize(merged.reduceMotion);
     if (saved.serviceProviderDisplayOrder !== undefined) {
       merged.serviceProviderDisplayOrder = String(saved.serviceProviderDisplayOrder || '');
@@ -1563,7 +1582,7 @@ function applyWindowSettings() {
 }
 
 function nativeBlurEnabled(source = settings) {
-  return floatingBubbleNativeGlassEnabled(source, floatingBubbleState, process.platform);
+  return floatingBubbleNativeGlassEnabled(source);
 }
 
 function keepNativeBlurActive() {
@@ -2830,7 +2849,11 @@ async function writeExportTo(dir, periods, options = {}) {
 
 async function fetchStats(options = {}) {
   const force = Boolean(options?.force);
-  const tickOptions = force ? { forceLimits: true } : {};
+  // forceHistory stays independent of `force` on purpose: tool settings, account
+  // sign-ins and limits actions all refresh with { force: true }, so folding the
+  // history rescan into it would spawn the expensive `tokscale graph` on each one.
+  // Only the manual refresh button opts in.
+  const tickOptions = force ? { forceLimits: true, forceHistory: Boolean(options?.forceHistory) } : {};
   if (mode === 'local') {
     if (force && localCollectorHandle) await localCollectorHandle.tick('manual', tickOptions);
     if (localStats) return localStats;
@@ -3299,7 +3322,7 @@ function createWindow(boundsOverride, options = {}) {
   });
   mainWindow = win;
   mainWindowChrome = { collapsedFloatingBubble };
-  applyWindowsChrome(win, { round: !collapsedFloatingBubble });
+  applyWindowsChrome(win, { round: true });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (isAllowedExternalUrl(url)) shell.openExternal(url);
     return { action: 'deny' };
@@ -3339,11 +3362,14 @@ function createWindow(boundsOverride, options = {}) {
   loadWindowFile(win, {
     waitForContent: options.waitForContent === true,
     inactive: options.inactive === true,
-    query: floatingBubbleInitialRendererQuery(floatingBubbleState, {
-      collapsedWindow: collapsedFloatingBubble,
-      suppressInitialNumberAnimation: options.suppressInitialNumberAnimation === true,
-      viewState: rendererViewState
-    })
+    query: {
+      ...floatingBubbleInitialRendererQuery(floatingBubbleState, {
+        collapsedWindow: collapsedFloatingBubble,
+        suppressInitialNumberAnimation: options.suppressInitialNumberAnimation === true,
+        viewState: rendererViewState
+      }),
+      ...(settings?.systemGlass === false ? { systemGlassDisabled: '1' } : {})
+    }
   });
 }
 
@@ -3633,6 +3659,7 @@ app.whenReady().then(() => {
     if (patch.collectionMode !== undefined) normalizedPatch.collectionMode = normalizeCollectionMode(patch.collectionMode, settings.collectionMode);
     if (patch.collectionIntervalMs !== undefined) normalizedPatch.collectionIntervalMs = normalizeCollectionIntervalMs(patch.collectionIntervalMs, settings.collectionIntervalMs);
     if (patch.syncUploadIntervalMs !== undefined) normalizedPatch.syncUploadIntervalMs = normalizeSyncUploadIntervalMs(patch.syncUploadIntervalMs, settings.syncUploadIntervalMs);
+    if (patch.heatmapMetric !== undefined) normalizedPatch.heatmapMetric = normalizeHeatmapMetric(patch.heatmapMetric, settings.heatmapMetric);
     settings = normalizeWindowBehaviorSettings({
       ...settings,
       ...normalizedPatch,
@@ -3665,6 +3692,7 @@ app.whenReady().then(() => {
       showHomeLimitBars: parseBoolean(patch.showHomeLimitBars ?? settings.showHomeLimitBars, false),
       homeLimitProviderOrder: patch.homeLimitProviderOrder !== undefined ? migrateHomeLimitProviderOrder(patch.homeLimitProviderOrder) : (settings.homeLimitProviderOrder || ''),
       hiddenHomeLimitProviders: patch.hiddenHomeLimitProviders !== undefined ? normalizeHiddenLimitProviders(patch.hiddenHomeLimitProviders) : normalizeHiddenLimitProviders(settings.hiddenHomeLimitProviders),
+      homeLimitAccountCount: normalizeHomeLimitAccountCount(patch.homeLimitAccountCount ?? settings.homeLimitAccountCount),
       historyEnabled: parseBoolean(patch.historyEnabled ?? settings.historyEnabled, false),
       projectsEnabled: parseBoolean(patch.projectsEnabled ?? settings.projectsEnabled, true),
       historyIntervalMs: normalizeHistoryIntervalMs(patch.historyIntervalMs ?? settings.historyIntervalMs),

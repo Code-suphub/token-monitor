@@ -506,7 +506,7 @@ function render() {
   els.activityPane.classList.toggle('hidden', state.tab !== 'activity');
   els.modeBtns.forEach((b) => b.classList.toggle('active', b.dataset.mode === state.mode));
   els.stackBtns.forEach((b) => b.classList.toggle('active', b.dataset.stack === state.stackBy));
-  els.heatmapMetricBtns.forEach((b) => b.classList.toggle('active', b.dataset.val === state.heatmapMetric));
+  els.heatmapMetricBtns.forEach((b) => { const active = b.dataset.val === state.heatmapMetric; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
   document.querySelector('[data-control="stack"]').style.display = state.mode === 'kline' ? 'none' : '';
   if (state.tab === 'trends') {
     heatmapMotionGeneration += 1;

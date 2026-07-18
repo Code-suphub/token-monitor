@@ -2066,6 +2066,10 @@ html.is-windows .settings-panel select option {
   opacity: 0.5;
   line-height: 1.4;
 }
+.home-heatmap-metric-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
 .home-heatmap-metric-btn.active {
   opacity: 1;
   background: rgba(var(--overlay-rgb), 0.12);

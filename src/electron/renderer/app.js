@@ -3890,7 +3890,8 @@ function renderHomeTrendsModule() {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `home-heatmap-metric-btn${heatMetric === metric ? ' active' : ''}`;
-      btn.textContent = metric === 'tokens' ? 'Tokens' : 'Cost';
+      btn.setAttribute('aria-pressed', String(heatMetric === metric));
+      btn.textContent = t(metric === 'tokens' ? 'dashboard.heatmap.tokens' : 'dashboard.heatmap.cost');
       btn.addEventListener('click', (event) => {
         event.stopPropagation();
         if ((state.settings?.heatmapMetric || 'tokens') === metric) return;

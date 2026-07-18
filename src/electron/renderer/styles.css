@@ -2067,7 +2067,7 @@ html.is-windows .settings-panel select option {
   line-height: 1.4;
 }
 .home-heatmap-metric-btn:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--green);
   outline-offset: 1px;
 }
 .home-heatmap-metric-btn.active {

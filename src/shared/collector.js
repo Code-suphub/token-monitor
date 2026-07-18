@@ -15,12 +15,13 @@ const { applyPeriodDelta, emptyPeriod, extractUsageFromTokscale, mergePeriods } 
 const { collectWslUsage: collectWslUsageImpl, emptyWslBundle, probeWslState: probeWslStateImpl } = require('./wslUsage');
 const { hermesProfileWatchDirs, resolveHermesHome } = require('./hermesProfiles');
 const { mergeHistories, parseGraphResult, normalizeHistory } = require('./history');
+const { retainDailyHistory } = require('./dailyHistoryArchive');
+const { buildClaudeStatsGraph } = require('./claudeTokenStats');
 const { collectLimitsOnce, createLimitsCollector } = require('./limitCollector');
 const cursorAuth = require('./cursorAuth');
 const { findSessionFiles, codexSessionFile } = require('./sessionFiles');
 const opencodeSession = require('./opencodeSession');
 const { buildPromaHistoryGraph, buildPromaPeriods, collectPromaRows } = require('./promaUsage');
-const { buildClaudeStatsGraph } = require('./claudeTokenStats');
 const { hashKey } = require('./hashKey');
 
 function toUnpackedPath(p) {
@@ -381,6 +382,9 @@ function sessionTimestampMap(periods, home = os.homedir(), deps = {}) {
   const metadata = deps.metadataCache || new Map();
   const resolvedSessionKeys = deps.resolvedSessionKeys || new Set();
   const attemptedSessionKeys = deps.attemptedSessionKeys || new Set();
+  // Timestamps are always backfilled (the session view sorts by recency); project
+  // identity is the part gated by the Projects opt-out (issue #182).
+  const resolveProjects = deps.resolveProjects !== false;
   const byClient = new Map();
   for (const ref of refs.values()) {
     const key = `${ref.client}:${ref.sessionId}`;
@@ -393,7 +397,7 @@ function sessionTimestampMap(periods, home = os.homedir(), deps = {}) {
   const applyFile = (client, sessionId, filePath) => {
     const startedAt = timestampFromSessionId(sessionId);
     const lastUsedAt = lastJsonlTimestamp(filePath) || startedAt;
-    const identity = projectIdentity(projectPathFromJsonl(filePath));
+    const identity = resolveProjects ? projectIdentity(projectPathFromJsonl(filePath)) : {};
     const key = `${client}:${sessionId}`;
     metadata.set(key, { startedAt, lastUsedAt, ...identity });
     if (identity.projectId) resolvedSessionKeys.add(key);
@@ -408,7 +412,7 @@ function sessionTimestampMap(periods, home = os.homedir(), deps = {}) {
     for (const [sessionId, meta] of readOpencodeMeta(opencodeIds)) {
       const startedAt = meta.startedAt || '';
       const lastUsedAt = meta.lastUsedAt || startedAt;
-      const identity = projectIdentity(meta.projectPath);
+      const identity = resolveProjects ? projectIdentity(meta.projectPath) : {};
       const key = `opencode:${sessionId}`;
       if (startedAt || lastUsedAt || identity.projectId) metadata.set(key, { startedAt, lastUsedAt, ...identity });
       if (identity.projectId) resolvedSessionKeys.add(key);
@@ -546,44 +550,75 @@ async function collectHistoryOnce(options) {
   const clients = normalizeClientsCsv(options.clients);
   if (options.historyEnabled === false) return null;
   const histories = [];
+  const rawGraphs = [];
   const runGraph = options.runGraph || runTokscaleGraph;
   const capDays = Number.isFinite(options.capDays) ? options.capDays : HISTORY_CAP_DAYS;
   const todayKey = options.todayKey || localTodayKey();
-  let rawTokscaleContributions = null;
   if (clients) {
     try {
       const graphJson = await runGraph({ clients, commandTimeoutMs: options.commandTimeoutMs || HISTORY_TIMEOUT_MS });
-      const parsed = parseGraphResult(graphJson);
-      // Save the raw (uncapped) contributions for dedup below, since
-      // histories[0].daily is capped to ~370 days and may miss older data.
-      rawTokscaleContributions = parsed.contributions || null;
-      histories.push(normalizeHistory(parsed, { capDays, todayKey }));
+      rawGraphs.push(graphJson);
+      histories.push(normalizeHistory(parseGraphResult(graphJson), { capDays, todayKey }));
     } catch (error) {
       if (typeof options.logger === 'function') options.logger(`tokscale graph failed: ${error.message}`);
     }
   }
-  if (options.promaGraph) histories.push(normalizeHistory(parseGraphResult(options.promaGraph), { capDays, todayKey }));
-  if (clients && clients.split(',').includes('claude')) {
+  if (options.promaGraph) {
+    rawGraphs.push(options.promaGraph);
+    histories.push(normalizeHistory(parseGraphResult(options.promaGraph), { capDays, todayKey }));
+  }
+  if (options.dailyHistoryArchiveEnabled) {
+    try {
+      const retainedGraph = retainDailyHistory(rawGraphs, {
+        ...(options.dailyHistoryArchiveOptions || {}),
+        todayKey,
+        capDays,
+        writeEnabled: options.dailyHistoryArchiveWriteEnabled
+      });
+      const retained = normalizeHistory(parseGraphResult(retainedGraph), { capDays, todayKey });
+      return retained.daily.length || retained.monthly.length ? retained : null;
+    } catch (error) {
+      if (typeof options.logger === 'function') options.logger(`daily history archive failed: ${error.message}`);
+    }
+  }
+  // Claude Code token_stats.db fallback: supplement days where tokscale
+  // reports zero Claude Code tokens (e.g. deleted transcripts).
+  if (clients && clients.split(',').includes('claude') && histories.length > 0) {
     const readStatsGraph = options.buildClaudeStatsGraph || buildClaudeStatsGraph;
     const statsGraph = readStatsGraph({ homeDir: options.homeDir });
     if (statsGraph) {
-      const parsed = parseGraphResult(statsGraph);
-      if (parsed.contributions?.length) {
-        const tokscaleClaudeDays = new Set();
-        // Use raw (uncapped) tokscale contributions so stats days outside
-        // the daily cap window are still deduplicated from monthly/summary.
-        const src = rawTokscaleContributions || histories[0]?.daily || [];
-        for (const d of src) {
-          const tokens = d.perClient?.claude?.tokens || d.tokens || 0;
-          if (tokens > 0) tokscaleClaudeDays.add(d.date);
+      try {
+        const parsed = parseGraphResult(statsGraph);
+        if (parsed.contributions?.length) {
+          const tokscaleClaudeDays = new Set();
+          // Build dedup set from parsed (not raw) tokscale contributions, since
+          // rawGraphs entries have the original graph format (clients arrays)
+          // while histories[0].daily has the normalized format (perClient).
+          const parsedToks = rawGraphs.length > 0 ? rawGraphs.map((g) => {
+            const p = parseGraphResult(g);
+            return Array.isArray(p.contributions) ? p.contributions : [];
+          }) : [];
+          if (parsedToks.length > 0) {
+            for (const days of parsedToks) {
+              for (const d of days) {
+                if (d.perClient?.claude?.tokens > 0) tokscaleClaudeDays.add(d.date);
+              }
+            }
+          } else {
+            for (const d of (histories[0]?.daily || [])) {
+              if (d.perClient?.claude?.tokens > 0) tokscaleClaudeDays.add(d.date);
+            }
+          }
+          if (tokscaleClaudeDays.size > 0) {
+            parsed.contributions = parsed.contributions.filter((c) => !tokscaleClaudeDays.has(c.date));
+          }
         }
-        if (tokscaleClaudeDays.size > 0) {
-          parsed.contributions = parsed.contributions.filter((c) => !tokscaleClaudeDays.has(c.date));
+        if (parsed.contributions?.length) {
+          const statsHistory = normalizeHistory(parsed, { capDays, todayKey });
+          if (statsHistory.daily.length) histories.push(statsHistory);
         }
-      }
-      if (parsed.contributions?.length) {
-        const statsHistory = normalizeHistory(parsed, { capDays, todayKey });
-        if (statsHistory.daily.length) histories.push(statsHistory);
+      } catch (error) {
+        if (typeof options.logger === 'function') options.logger(`claude stats fallback failed: ${error.message}`);
       }
     }
   }
@@ -622,7 +657,7 @@ async function collectUsageOnce(options) {
   const decorateLocalPeriods = (periods, { retryMisses = false } = {}) => applySessionTimestamps(
     periods,
     options.homeDir || os.homedir(),
-    { ...localSessionMetadataDeps, retryMisses }
+    { ...localSessionMetadataDeps, retryMisses, resolveProjects: projectsEnabled }
   );
   // tokscale doesn't know about Proma yet — filter it out of the subprocess
   // calls so --client doesn't reject an unknown value. Proma is parsed
@@ -677,28 +712,30 @@ async function collectUsageOnce(options) {
       // is what let the issue #15 self-trigger loop spike tokscale past 500% CPU.
       const todayJson = await runTokscaleFn({ clients: tokscaleClients, flags: ['--today'], commandTimeoutMs });
       today = extractUsageFromTokscale(todayJson);
-      if (projectsEnabled && typeof options.onProgress === 'function') decorateLocalPeriods({ today });
+      if (typeof options.onProgress === 'function') decorateLocalPeriods({ today });
       try { if (typeof options.onProgress === 'function') options.onProgress({ today, updatedAt: new Date().toISOString() }); } catch (_) {}
       const monthJson = await runTokscaleFn({ clients: tokscaleClients, flags: ['--month'], commandTimeoutMs });
       month = extractUsageFromTokscale(monthJson);
-      if (projectsEnabled && typeof options.onProgress === 'function') decorateLocalPeriods({ today, month });
+      if (typeof options.onProgress === 'function') decorateLocalPeriods({ today, month });
       try { if (typeof options.onProgress === 'function') options.onProgress({ today, month, updatedAt: new Date().toISOString() }); } catch (_) {}
       const allTimeJson = await runTokscaleFn({ clients: tokscaleClients, flags: ['--since', allTimeSince], commandTimeoutMs });
       allTime = extractUsageFromTokscale(allTimeJson);
     }
-    if (projectsEnabled) {
-      if (anchorUsed) {
-        // Watch tick: `today` is a fresh scan and must be decorated, but month/
-        // allTime are derived from the last full-scan anchor and already carry each
-        // session's project label + timestamps through applyPeriodDelta. Decorating
-        // them again would re-stat every historical session file every few seconds
-        // (the perceived UI stutter). Decorate only today, then propagate its freshly
-        // resolved identities onto sessions that started today (absent from the anchor).
-        decorateLocalPeriods({ today }, { retryMisses: true });
-        propagateTodayProjects(today, [month, allTime]);
-      } else {
-        decorateLocalPeriods({ today, month, allTime }, { retryMisses: true });
-      }
+    // Always decorate: session timestamps drive the recency sort regardless of the
+    // Projects opt-out (issue #182). decorateLocalPeriods gates only project identity
+    // on projectsEnabled, so opting out still costs the timestamp backfill and nothing
+    // more.
+    if (anchorUsed) {
+      // Watch tick: `today` is a fresh scan and must be decorated, but month/
+      // allTime are derived from the last full-scan anchor and already carry each
+      // session's project label + timestamps through applyPeriodDelta. Decorating
+      // them again would re-stat every historical session file every few seconds
+      // (the perceived UI stutter). Decorate only today, then propagate its freshly
+      // resolved identities onto sessions that started today (absent from the anchor).
+      decorateLocalPeriods({ today }, { retryMisses: true });
+      propagateTodayProjects(today, [month, allTime]);
+    } else {
+      decorateLocalPeriods({ today, month, allTime }, { retryMisses: true });
     }
     if (promaPeriods && !anchorUsed) {
       today = mergePeriods(today, promaPeriods.today);
@@ -736,7 +773,7 @@ async function collectUsageOnce(options) {
           pricingRevision: options.pricingRevision
         }),
         logger: options.logger,
-        decoratePeriods: projectsEnabled ? (periods, home) => applySessionTimestamps(periods, home, { scopedHome: true }) : undefined
+        decoratePeriods: (periods, home) => applySessionTimestamps(periods, home, { scopedHome: true, resolveProjects: projectsEnabled })
       });
       wslBundle = wslResult.bundle;
       wslDetected = wslResult.detected;
@@ -756,7 +793,7 @@ async function collectUsageOnce(options) {
           pricingRevision: options.pricingRevision
         }),
         logger: options.logger,
-        decoratePeriods: projectsEnabled ? (periods, home) => applySessionTimestamps(periods, home, { scopedHome: true }) : undefined
+        decoratePeriods: (periods, home) => applySessionTimestamps(periods, home, { scopedHome: true, resolveProjects: projectsEnabled })
       });
       wslBundle = wslResult.bundle;
       wslDetected = wslResult.detected;
@@ -824,6 +861,10 @@ async function collectUsageOnce(options) {
       capDays: options.historyCapDays,
       todayKey: localTodayKey(collectedAt),
       runGraph: options.runGraph,
+      dailyHistoryArchiveEnabled: options.dailyHistoryArchiveEnabled,
+      dailyHistoryArchiveWriteEnabled: options.dailyHistoryArchiveWriteEnabled,
+      dailyHistoryArchiveOptions: options.dailyHistoryArchiveOptions,
+      buildClaudeStatsGraph: options.buildClaudeStatsGraph,
       logger: options.logger
     });
     if (history) summary.history = history;

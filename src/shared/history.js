@@ -74,16 +74,26 @@ function parseGraphResult(raw) {
   return timeMetrics ? { contributions, timeMetrics } : { contributions };
 }
 
-// Ported from tokscale calculate_intensities: bucket each day by its cost ratio to the
-// highest-cost day in the set. Mutates and returns the same array.
+// Compute both token-based and cost-based intensity for each day.
+// .intensity = token ratio, .costIntensity = cost ratio (4-level buckets).
+// Mutates and returns the same array.
 function computeIntensities(days) {
   const list = Array.isArray(days) ? days : [];
+  let maxTokens = 0;
   let maxCost = 0;
-  for (const d of list) maxCost = Math.max(maxCost, num(d.cost));
   for (const d of list) {
-    if (maxCost <= 0) { d.intensity = 0; continue; }
-    const ratio = num(d.cost) / maxCost;
-    d.intensity = ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : ratio > 0 ? 1 : 0;
+    maxTokens = Math.max(maxTokens, num(d.tokens));
+    maxCost = Math.max(maxCost, num(d.cost));
+  }
+  for (const d of list) {
+    if (maxTokens <= 0) { d.intensity = 0; } else {
+      const ratio = num(d.tokens) / maxTokens;
+      d.intensity = ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : ratio > 0 ? 1 : 0;
+    }
+    if (maxCost <= 0) { d.costIntensity = 0; } else {
+      const ratio = num(d.cost) / maxCost;
+      d.costIntensity = ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : ratio > 0 ? 1 : 0;
+    }
   }
   return list;
 }

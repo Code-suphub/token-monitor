@@ -86,17 +86,17 @@ test('parseGraphResult is defensive about missing/garbage input', () => {
   });
 });
 
-test('computeIntensities buckets by token and cost ratio', () => {
+test('computeIntensities keeps legacy cost intensity and exposes explicit metrics', () => {
   const days = [
     { date: 'a', tokens: 0, cost: 0 },
-    { date: 'b', tokens: 0.2, cost: 0.015 },   // token: 0.2/4 = 0.05 -> 1, cost: 0.015/0.3 = 0.05 -> 1
-    { date: 'c', tokens: 1.0, cost: 0.075 },   // 0.25 -> 2
-    { date: 'd', tokens: 2.0, cost: 0.15 },    // 0.5 -> 3
-    { date: 'e', tokens: 4.0, cost: 0.30 }     // 1.0 -> 4
+    { date: 'b', tokens: 100, cost: 1 },
+    { date: 'c', tokens: 50, cost: 4 },
+    { date: 'd', tokens: 25, cost: 0.2 }
   ];
   const out = computeIntensities(days);
-  assert.deepEqual(out.map((d) => d.intensity), [0, 1, 2, 3, 4]);
-  assert.deepEqual(out.map((d) => d.costIntensity), [0, 1, 2, 3, 4]);
+  assert.deepEqual(out.map((d) => d.tokenIntensity), [0, 4, 3, 2]);
+  assert.deepEqual(out.map((d) => d.costIntensity), [0, 2, 4, 1]);
+  assert.deepEqual(out.map((d) => d.intensity), [0, 2, 4, 1]);
   // returns the same array reference, mutated in place
   assert.equal(out, days);
 });
@@ -106,21 +106,24 @@ test('computeIntensities handles token-only and cost-only data independently', (
     { date: 'a', tokens: 0, cost: 0 },
     { date: 'b', tokens: 10, cost: 0 }
   ]);
-  assert.deepEqual(tokenOnly.map((d) => d.intensity), [0, 4]);
+  assert.deepEqual(tokenOnly.map((d) => d.tokenIntensity), [0, 4]);
   assert.deepEqual(tokenOnly.map((d) => d.costIntensity), [0, 0]);
+  assert.deepEqual(tokenOnly.map((d) => d.intensity), [0, 0]);
 
   const costOnly = computeIntensities([
     { date: 'a', tokens: 0, cost: 0 },
     { date: 'b', tokens: 0, cost: 10 }
   ]);
-  assert.deepEqual(costOnly.map((d) => d.intensity), [0, 0]);
+  assert.deepEqual(costOnly.map((d) => d.tokenIntensity), [0, 0]);
   assert.deepEqual(costOnly.map((d) => d.costIntensity), [0, 4]);
+  assert.deepEqual(costOnly.map((d) => d.intensity), [0, 4]);
 });
 
 test('computeIntensities sets all-zero when no tokens and no cost', () => {
   const days = [{ date: 'a', tokens: 0, cost: 0 }, { date: 'b', tokens: 0, cost: 0 }];
   const out = computeIntensities(days);
   assert.deepEqual(out.map((d) => d.intensity), [0, 0]);
+  assert.deepEqual(out.map((d) => d.tokenIntensity), [0, 0]);
   assert.deepEqual(out.map((d) => d.costIntensity), [0, 0]);
 });
 

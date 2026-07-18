@@ -37,7 +37,7 @@ const state = {
   tab: 'activity', range: '30', stackBy: 'client', mode: 'bars', flat: false,
   locale: 'en', currency: 'USD', history: null, chartModel: null,
   chartKind: 'bars', motion: 'none', reduceMotion: 'system',
-  heatmapMetric: 'tokens'
+  heatmapMetric: 'cost'
 };
 
 const DATA_MOTION_MS = 800;
@@ -459,13 +459,13 @@ function balanceStatCards() {
 }
 
 function renderActivity() {
-  const daily = state.history?.daily || [];
+  const daily = charts.computeHeatmapIntensities(state.history?.daily || []);
   const end = todayKey();
   // Start at the 1st of the month 11 months back → exactly 12 distinct months (Jul→Jun),
   // like GitHub/codex, so there's no duplicate leading month label.
   const now = new Date(`${end}T00:00:00Z`);
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1)).toISOString().slice(0, 10);
-	const intensityKey = state.heatmapMetric === 'cost' ? 'costIntensity' : 'intensity';
+  const intensityKey = state.heatmapMetric === 'cost' ? 'costIntensity' : 'tokenIntensity';
   const gap = 4;
   let heat = charts.contribHeatmap(daily, { cell: 14, gap, startDate: start, endDate: end, intensityKey });
   const avail = els.heatmap.clientWidth || 0;
@@ -597,7 +597,7 @@ async function boot() {
     window.TokenMonitorCurrency.configureRates(settings.currencyRatesEffective);
   }
   state.flat = settings.dashboardFlat === true;
-  state.heatmapMetric = settings.heatmapMetric || 'tokens';
+  state.heatmapMetric = settings.heatmapMetric || 'cost';
   applyAppearance(settings);
   applyTranslations();
   populateRangeSelect();
@@ -627,7 +627,7 @@ window.tokenMonitor.onSettingsPush?.((next) => {
     applyReduceMotionPreference(reduceMotion);
     needsRender = true;
   }
-  const nextMetric = next.heatmapMetric || 'tokens';
+  const nextMetric = next.heatmapMetric || 'cost';
   if (state.heatmapMetric !== nextMetric) {
     state.heatmapMetric = nextMetric;
     needsRender = true;

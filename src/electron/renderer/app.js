@@ -210,6 +210,7 @@ state.animateBarsFromZero = false;
 state.animateChartsOnRender = true;
 let directBreakdownOverride = null;
 state.projectSettingsExpanded = false;
+state.homeActivitySettingsExpanded = false;
 state.settingsSections = Object.fromEntries(SETTINGS_SECTION_IDS.map((id) => [id, false]));
 const defaultAppearance = { glassOpacity: 68, glassBlur: 32, zoomFactor: 1, systemGlass: true, reduceMotion: 'system', showLiveDot: true, showToolIcons: true, titleIconOnly: true, showCompactTotalTokens: false, settingsInTitlebar: false };
 let preferenceDrag = null;
@@ -3598,15 +3599,7 @@ function renderHomeDeviceModule() {
 }
 
 function dailyWithHeatIntensity(daily) {
-  const points = Array.isArray(daily) ? daily : [];
-  if (points.some((point) => Number.isFinite(Number(point?.intensity)))) return points;
-  const metric = points.some((point) => Number(point?.cost || 0) > 0) ? 'cost' : 'tokens';
-  const max = Math.max(1, ...points.map((point) => Number(point?.[metric] || 0)));
-  return points.map((point) => {
-    const ratio = Number(point?.[metric] || 0) / max;
-    const intensity = ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : ratio > 0 ? 1 : 0;
-    return { ...point, intensity };
-  });
+  return window.TokenMonitorUsageCharts.computeHeatmapIntensities(daily);
 }
 
 function applyHomeActivityScroll(scroller) {
@@ -3805,10 +3798,8 @@ function setupHomeActivityHover(scroller) {
       activeCell?.removeAttribute('data-active');
       activeCell = cell;
       activeCell.setAttribute('data-active', 'true');
-      const costMode = (state.settings?.heatmapMetric || 'tokens') === 'cost';
-      const value = costMode ? Number(cell.dataset.cost || 0) : Number(cell.dataset.t || 0);
-      tooltip.querySelector('[data-home-activity-tooltip-count]').textContent = costMode ? formatCost(value) : formatCompact(value);
-      tooltip.querySelector('[data-home-activity-tooltip-label]').textContent = costMode ? 'cost' : 'tokens';
+      tooltip.querySelector('[data-home-activity-tooltip-count]').textContent = formatCompact(Number(cell.dataset.t || 0));
+      tooltip.querySelector('[data-home-activity-tooltip-label]').textContent = 'tokens';
       tooltip.querySelector('[data-home-activity-tooltip-date]').textContent = cell.dataset.d || '';
     }
     tooltip.dataset.visible = 'true';
@@ -3869,8 +3860,8 @@ function renderHomeTrendsModule() {
   const todayPeriod = state.stats?.periods?.today;
   const points = homeOverviewApi.patchDailyToday(rawDaily, today, Number(todayPeriod?.totalTokens || 0), Number(todayPeriod?.costUsd || 0));
   const activityLayout = homeOverviewApi.homeActivityHeatmapLayout();
-  const heatMetric = state.settings?.heatmapMetric || 'tokens';
-  const intensityField = heatMetric === 'cost' ? 'costIntensity' : 'intensity';
+  const heatMetric = state.settings?.heatmapMetric || 'cost';
+  const intensityField = heatMetric === 'cost' ? 'costIntensity' : 'tokenIntensity';
   const intensityPoints = dailyWithHeatIntensity(points).map((p) => ({
     ...p,
     intensity: Number(p[intensityField] ?? p.intensity ?? 0)
@@ -3882,27 +3873,6 @@ function renderHomeTrendsModule() {
   });
   const activeDays = activity.cells.filter((cell) => cell.tokens > 0).length;
   const { module, body } = homeModuleShell('trends', t('home.activity'), 'trends', t('home.activeDays', { count: activeDays }));
-  const headEnd = module.querySelector('.home-module-head-end');
-  if (headEnd) {
-    const metricToggle = document.createElement('div');
-    metricToggle.className = 'home-heatmap-metric';
-    ['tokens', 'cost'].forEach((metric) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `home-heatmap-metric-btn${heatMetric === metric ? ' active' : ''}`;
-      btn.setAttribute('aria-pressed', String(heatMetric === metric));
-      btn.textContent = t(metric === 'tokens' ? 'dashboard.heatmap.tokens' : 'dashboard.heatmap.cost');
-      btn.addEventListener('click', (event) => {
-        event.stopPropagation();
-        if ((state.settings?.heatmapMetric || 'tokens') === metric) return;
-        state.settings = { ...state.settings, heatmapMetric: metric };
-        window.tokenMonitor.updateSettings({ heatmapMetric: metric });
-        render();
-      });
-      metricToggle.append(btn);
-    });
-    headEnd.insertBefore(metricToggle, headEnd.lastChild);
-  }
   const activityScroll = document.createElement('div');
   activityScroll.className = 'home-activity-scroll';
   activityScroll.tabIndex = 0;
@@ -5791,23 +5761,32 @@ function renderHomeSettingsList() {
     name.textContent = label;
     const actions = document.createElement('div');
     actions.className = 'tool-preference-actions';
-    if (id === 'limits') {
+    if (id === 'limits' || id === 'trends') {
       const configure = document.createElement('button');
       configure.type = 'button';
-      configure.className = `view-subgroup-toggle${state.homeLimitSettingsExpanded ? ' is-expanded' : ''}`;
-      configure.title = t('settings.home.configureLimits');
+      const expanded = id === 'limits' ? state.homeLimitSettingsExpanded : state.homeActivitySettingsExpanded;
+      configure.className = `view-subgroup-toggle${expanded ? ' is-expanded' : ''}`;
+      configure.title = t(id === 'limits' ? 'settings.home.configureLimits' : 'settings.home.configureActivity');
       configure.setAttribute('aria-label', configure.title);
-      configure.setAttribute('aria-expanded', String(Boolean(state.homeLimitSettingsExpanded)));
+      configure.setAttribute('aria-expanded', String(Boolean(expanded)));
       const toggleIcon = document.createElement('span');
       toggleIcon.className = 'view-subgroup-icon';
       toggleIcon.setAttribute('aria-hidden', 'true');
       configure.append(toggleIcon);
       configure.addEventListener('click', () => {
-        state.homeLimitSettingsExpanded = !state.homeLimitSettingsExpanded;
-        configure.classList.toggle('is-expanded', state.homeLimitSettingsExpanded);
-        configure.setAttribute('aria-expanded', String(Boolean(state.homeLimitSettingsExpanded)));
-        const container = document.getElementById('homeLimitProviderContainer');
-        if (container) container.classList.toggle('hidden', !state.homeLimitSettingsExpanded);
+        if (id === 'limits') {
+          state.homeLimitSettingsExpanded = !state.homeLimitSettingsExpanded;
+          configure.classList.toggle('is-expanded', state.homeLimitSettingsExpanded);
+          configure.setAttribute('aria-expanded', String(Boolean(state.homeLimitSettingsExpanded)));
+          const container = document.getElementById('homeLimitProviderContainer');
+          if (container) container.classList.toggle('hidden', !state.homeLimitSettingsExpanded);
+          return;
+        }
+        state.homeActivitySettingsExpanded = !state.homeActivitySettingsExpanded;
+        configure.classList.toggle('is-expanded', state.homeActivitySettingsExpanded);
+        configure.setAttribute('aria-expanded', String(Boolean(state.homeActivitySettingsExpanded)));
+        const container = document.getElementById('homeActivitySettingsContainer');
+        if (container) container.classList.toggle('hidden', !state.homeActivitySettingsExpanded);
       });
       actions.append(configure);
     }
@@ -5833,8 +5812,48 @@ function renderHomeSettingsList() {
       listContainer.appendChild(inner);
       wrap.append(listContainer);
     }
+    if (id === 'trends') {
+      const listContainer = document.createElement('div');
+      listContainer.id = 'homeActivitySettingsContainer';
+      listContainer.className = `accordion-animated-container${state.homeActivitySettingsExpanded ? '' : ' hidden'}`;
+      const inner = document.createElement('div');
+      inner.className = 'accordion-animation-inner';
+      inner.appendChild(renderHomeActivitySettings());
+      listContainer.appendChild(inner);
+      wrap.append(listContainer);
+    }
   }
   return wrap;
+}
+
+function renderHomeActivitySettings() {
+  const row = document.createElement('div');
+  row.className = 'home-activity-settings';
+  const label = document.createElement('span');
+  label.textContent = t('settings.home.heatmapColor');
+  const options = document.createElement('div');
+  options.className = 'inline-options';
+  options.setAttribute('role', 'radiogroup');
+  options.setAttribute('aria-label', label.textContent);
+  const currentMetric = state.settings?.heatmapMetric || 'cost';
+  for (const metric of ['tokens', 'cost']) {
+    const option = document.createElement('label');
+    option.className = 'inline-option';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'homeHeatmapMetric';
+    input.value = metric;
+    input.checked = currentMetric === metric;
+    input.addEventListener('change', () => {
+      if (input.checked) void saveSettings({ heatmapMetric: metric }).then(renderHomeIfVisible);
+    });
+    const text = document.createElement('span');
+    text.textContent = t(metric === 'tokens' ? 'dashboard.heatmap.tokens' : 'dashboard.heatmap.cost');
+    option.append(input, text);
+    options.append(option);
+  }
+  row.append(label, options);
+  return row;
 }
 
 function renderTrendSettingsList() {
@@ -7000,7 +7019,7 @@ window.tokenMonitor.onSettingsPush?.((next) => {
   applyEffectiveCurrencyRates();
   syncSettingsForm();
   maybeUpdateBarsIcon();
-  if (prevMetric !== (next.heatmapMetric || 'tokens')) {
+  if ((prevMetric || 'cost') !== (next.heatmapMetric || 'cost')) {
     render();
   }
 });

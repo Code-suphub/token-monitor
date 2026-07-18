@@ -57,6 +57,26 @@
     return addDaysUTC(k, -dayOfWeekMon(k));
   }
 
+  function heatmapIntensity(value, max) {
+    if (max <= 0) return 0;
+    const ratio = n(value) / max;
+    return ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : ratio > 0 ? 1 : 0;
+  }
+
+  // Derive both metrics from the raw values at render time. This keeps preview
+  // payloads, older hubs, and the live-today patched row on the same semantics
+  // without relying on optional wire-level intensity fields.
+  function computeHeatmapIntensities(daily) {
+    const rows = Array.isArray(daily) ? daily : [];
+    const maxTokens = Math.max(0, ...rows.map((row) => n(row?.tokens)));
+    const maxCost = Math.max(0, ...rows.map((row) => n(row?.cost)));
+    return rows.map((row) => {
+      const tokenIntensity = heatmapIntensity(row?.tokens, maxTokens);
+      const costIntensity = heatmapIntensity(row?.cost, maxCost);
+      return { ...row, intensity: costIntensity, costIntensity, tokenIntensity };
+    });
+  }
+
   function dailyBarsChart(series, options) {
     const o = Object.assign(
       { width: 600, height: 180, padTop: 8, padRight: 8, padBottom: 20, padLeft: 40, gap: 0.2, stackBy: 'client', metric: 'tokens', labelKey: 'date' },
@@ -560,7 +580,7 @@
   }
 
   return {
-    localDayKey, weekStartKey, dailyBarsChart, candleChart, contribHeatmap, rollingYearHeatmap, statsCards, sparklinePreview,
+    localDayKey, weekStartKey, dailyBarsChart, candleChart, computeHeatmapIntensities, contribHeatmap, rollingYearHeatmap, statsCards, sparklinePreview,
     areaLineChart, areaLineSvg,
     selectPreviewSeries, patchTodayBar, sparklineSvg,
     clientColors, fallbackModelColors, modelVendorFor, modelColor, clampDaily,

@@ -74,9 +74,15 @@ function parseGraphResult(raw) {
   return timeMetrics ? { contributions, timeMetrics } : { contributions };
 }
 
-// Compute both token-based and cost-based intensity for each day.
-// .intensity = token ratio, .costIntensity = cost ratio (4-level buckets).
-// Mutates and returns the same array.
+function intensityBucket(value, max) {
+  if (max <= 0) return 0;
+  const ratio = num(value) / max;
+  return ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : ratio > 0 ? 1 : 0;
+}
+
+// Preserve the legacy cost-based .intensity field for mixed-version hubs/widgets,
+// while exposing explicit fields for new metric-aware renderers. Mutates and returns
+// the same array.
 function computeIntensities(days) {
   const list = Array.isArray(days) ? days : [];
   let maxTokens = 0;
@@ -86,14 +92,9 @@ function computeIntensities(days) {
     maxCost = Math.max(maxCost, num(d.cost));
   }
   for (const d of list) {
-    if (maxTokens <= 0) { d.intensity = 0; } else {
-      const ratio = num(d.tokens) / maxTokens;
-      d.intensity = ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : ratio > 0 ? 1 : 0;
-    }
-    if (maxCost <= 0) { d.costIntensity = 0; } else {
-      const ratio = num(d.cost) / maxCost;
-      d.costIntensity = ratio >= 0.75 ? 4 : ratio >= 0.5 ? 3 : ratio >= 0.25 ? 2 : ratio > 0 ? 1 : 0;
-    }
+    d.tokenIntensity = intensityBucket(d.tokens, maxTokens);
+    d.costIntensity = intensityBucket(d.cost, maxCost);
+    d.intensity = d.costIntensity;
   }
   return list;
 }

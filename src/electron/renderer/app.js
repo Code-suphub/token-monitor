@@ -3563,7 +3563,15 @@ function homeLimitRows() {
     accountName: (provider, index, providerEntries) => {
       const id = String(provider?.provider || '').trim().toLowerCase();
       const option = providerOptions.find((entry) => entry.id === id);
-      return id === 'codex' && providerEntries.length > 1 ? codexAccountTitle(provider, index) : option?.label || id;
+      const baseLabel = option?.label || id;
+      if (providerEntries.length > 1) {
+        let suffix;
+        if (id === 'codex') suffix = codexAccountTitle(provider, index);
+        else if (id === 'mimo') suffix = mimoAccountTitle(provider, index);
+        else suffix = String(provider?.accountLabel || provider?.accountEmail || provider?.accountName || '').trim() || `Account ${index + 1}`;
+        return `${baseLabel} · ${suffix}`;
+      }
+      return baseLabel;
     }
   });
 }

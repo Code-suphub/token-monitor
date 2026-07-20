@@ -4004,6 +4004,7 @@ app.whenReady().then(() => {
       if (settings.discordRpcEnabled && latestStats) updateDiscordRpc(latestStats, settings.currency);
       refreshExchangeRates();              // async: fetch if stale, then re-push
     }
+    pushSettingsToRenderer();
     return settingsForRenderer();
   });
   ipcMain.handle('appearance:preview', (_event, patch) => {

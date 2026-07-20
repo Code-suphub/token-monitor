@@ -3905,7 +3905,13 @@ function renderHomeTrendsModule() {
     gap: activityLayout.gap
   });
   const activeDays = activity.cells.filter((cell) => cell.tokens > 0).length;
-  const { module, body } = homeModuleShell('trends', t('home.activity'), 'trends', t('home.activeDays', { count: activeDays }));
+  const summaryActiveDays = state.stats?.historyPreview?.summary?.activeDays;
+  const activeDaysWindow = state.settings?.homeActiveDaysWindow || 'all';
+  const displayActiveDays = activeDaysWindow === 'year' ? activeDays : (Number.isFinite(summaryActiveDays) ? summaryActiveDays : activeDays);
+  const activeDaysLabel = activeDaysWindow === 'year'
+    ? t('home.activeDaysYear', { count: displayActiveDays })
+    : t('home.activeDays', { count: displayActiveDays });
+  const { module, body } = homeModuleShell('trends', t('home.activity'), 'trends', activeDaysLabel);
   const activityScroll = document.createElement('div');
   activityScroll.className = 'home-activity-scroll';
   activityScroll.tabIndex = 0;
@@ -5894,6 +5900,32 @@ function renderHomeActivitySettings() {
     options.append(option);
   }
   row.append(label, options);
+
+  const separator = document.createElement('hr');
+  const daysLabel = document.createElement('span');
+  daysLabel.textContent = t('settings.home.activeDaysWindow');
+  const daysOptions = document.createElement('div');
+  daysOptions.className = 'inline-options';
+  daysOptions.setAttribute('role', 'radiogroup');
+  daysOptions.setAttribute('aria-label', daysLabel.textContent);
+  const currentDaysWindow = state.settings?.homeActiveDaysWindow || 'all';
+  for (const mode of ['all', 'year']) {
+    const option = document.createElement('label');
+    option.className = 'inline-option';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'homeActiveDaysWindow';
+    input.value = mode;
+    input.checked = currentDaysWindow === mode;
+    input.addEventListener('change', () => {
+      if (input.checked) void saveSettings({ homeActiveDaysWindow: mode }).then(renderHomeIfVisible);
+    });
+    const text = document.createElement('span');
+    text.textContent = t(`settings.home.activeDaysWindow.${mode}`);
+    option.append(input, text);
+    daysOptions.append(option);
+  }
+  row.append(separator, daysLabel, daysOptions);
   return row;
 }
 

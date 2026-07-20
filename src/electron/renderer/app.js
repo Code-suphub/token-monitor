@@ -5877,14 +5877,16 @@ function renderHomeSettingsList() {
 }
 
 function renderHomeActivitySettings() {
-  const row = document.createElement('div');
-  row.className = 'home-activity-settings';
-  const label = document.createElement('span');
-  label.textContent = t('settings.home.heatmapColor');
-  const options = document.createElement('div');
-  options.className = 'inline-options';
-  options.setAttribute('role', 'radiogroup');
-  options.setAttribute('aria-label', label.textContent);
+  const frag = document.createDocumentFragment();
+
+  const heatmapRow = document.createElement('div');
+  heatmapRow.className = 'home-activity-settings';
+  const heatmapLabel = document.createElement('span');
+  heatmapLabel.textContent = t('settings.home.heatmapColor');
+  const heatmapOptions = document.createElement('div');
+  heatmapOptions.className = 'inline-options';
+  heatmapOptions.setAttribute('role', 'radiogroup');
+  heatmapOptions.setAttribute('aria-label', heatmapLabel.textContent);
   const currentMetric = state.settings?.heatmapMetric || 'cost';
   for (const metric of ['tokens', 'cost']) {
     const option = document.createElement('label');
@@ -5900,13 +5902,13 @@ function renderHomeActivitySettings() {
     const text = document.createElement('span');
     text.textContent = t(metric === 'tokens' ? 'dashboard.heatmap.tokens' : 'dashboard.heatmap.cost');
     option.append(input, text);
-    options.append(option);
+    heatmapOptions.append(option);
   }
-  row.append(label, options);
+  heatmapRow.append(heatmapLabel, heatmapOptions);
+  frag.append(heatmapRow);
 
-  const separator = document.createElement('hr');
-  row.append(separator);
-
+  const daysRow = document.createElement('div');
+  daysRow.className = 'home-activity-settings';
   const daysLabel = document.createElement('span');
   daysLabel.textContent = t('settings.home.activeDaysWindow');
   const daysOptions = document.createElement('div');
@@ -5930,8 +5932,10 @@ function renderHomeActivitySettings() {
     option.append(input, text);
     daysOptions.append(option);
   }
-  row.append(daysLabel, daysOptions);
-  return row;
+  daysRow.append(daysLabel, daysOptions);
+  frag.append(daysRow);
+
+  return frag;
 }
 
 function renderTrendSettingsList() {

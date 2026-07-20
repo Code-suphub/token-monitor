@@ -252,7 +252,7 @@
       'home.emptyBody': 'Show Home modules to build your overview.',
       'home.customize': 'Customize Home',
       'home.activeDays': '{count} active days',
-      'home.activeDaysYear': '{count} active days this year',
+      'home.activeDaysYear': '{count} active days in the past year',
       'home.lastDays': 'Last {count} days',
       'home.lastMonths': 'Last {count} months',
       'home.activityScroll': 'Scrollable token activity for the last 12 months',

@@ -3904,10 +3904,13 @@ function renderHomeTrendsModule() {
     cell: activityLayout.cell,
     gap: activityLayout.gap
   });
-  const activeDays = activity.cells.filter((cell) => cell.tokens > 0).length;
   const summaryActiveDays = state.stats?.historyPreview?.summary?.activeDays;
   const activeDaysWindow = state.settings?.homeActiveDaysWindow || 'all';
-  const displayActiveDays = activeDaysWindow === 'year' ? activeDays : (Number.isFinite(summaryActiveDays) ? summaryActiveDays : activeDays);
+  const displayActiveDays = activeDaysWindow === 'year'
+    ? activity.cells.filter((cell) => cell.tokens > 0).length
+    : (Number.isFinite(summaryActiveDays)
+        ? summaryActiveDays
+        : activity.cells.filter((cell) => cell.tokens > 0).length);
   const activeDaysLabel = activeDaysWindow === 'year'
     ? t('home.activeDaysYear', { count: displayActiveDays })
     : t('home.activeDays', { count: displayActiveDays });
@@ -5902,6 +5905,8 @@ function renderHomeActivitySettings() {
   row.append(label, options);
 
   const separator = document.createElement('hr');
+  row.append(separator);
+
   const daysLabel = document.createElement('span');
   daysLabel.textContent = t('settings.home.activeDaysWindow');
   const daysOptions = document.createElement('div');
@@ -5925,7 +5930,7 @@ function renderHomeActivitySettings() {
     option.append(input, text);
     daysOptions.append(option);
   }
-  row.append(separator, daysLabel, daysOptions);
+  row.append(daysLabel, daysOptions);
   return row;
 }
 
